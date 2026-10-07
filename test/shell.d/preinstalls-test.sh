@@ -42,8 +42,12 @@ printf '%s\n' "$*" >>"$OMARCHY_TEST_MISE_LOG"
 case "$*" in
 'reshim --system') exit "${OMARCHY_TEST_RESHIM_STATUS:-0}" ;;
 'settings get disable_tools')
-  printf '[%s]\n' "$(sed 's/.*/"&"/' "$OMARCHY_TEST_DISABLED" | paste -sd, | sed 's/,/, /g')" ;;
-'settings add disable_tools '*) printf '%s\n' "$4" >>"$OMARCHY_TEST_DISABLED" ;;
+  printf '[%s]\n' "$(sed 's/.*/"&"/' "$OMARCHY_TEST_DISABLED" | paste -sd, - | sed 's/,/, /g')" ;;
+'settings add disable_tools '*)
+  [[ ${OMARCHY_TEST_FAIL_BEFORE_DISABLE:-} == "$4" ]] && exit 1
+  printf '%s\n' "$4" >>"$OMARCHY_TEST_DISABLED"
+  [[ ${OMARCHY_TEST_FAIL_AFTER_DISABLE:-} == "$4" ]] && exit 1
+  ;;
 'settings set disable_tools '*) tr ',' '\n' <<<"$4" >"$OMARCHY_TEST_DISABLED" ;;
 'settings unset disable_tools') : >"$OMARCHY_TEST_DISABLED" ;;
 esac
@@ -92,6 +96,19 @@ pass "Remove Preinstalls disables Omarchy's mise tools for this user"
 "$ROOT/bin/omarchy-install-preinstalls" >/dev/null
 [[ $(<"$OMARCHY_TEST_DISABLED") == node ]] || fail "Install Preinstalls re-enables only the tools Remove Preinstalls disabled"
 pass "Install Preinstalls re-enables only the tools Remove Preinstalls disabled"
+
+# A failure on either side of the settings write leaves recoverable progress.
+for failure in OMARCHY_TEST_FAIL_BEFORE_DISABLE OMARCHY_TEST_FAIL_AFTER_DISABLE; do
+  env "$failure=codex" "$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null && status=0 || status=$?
+  ((status == 1)) || fail "disable reports an interrupted setting write" "$failure returned $status"
+  record="$HOME/.local/state/omarchy/mise-disabled-default-tools"
+  grep -qxF codex "$record" || fail "disable records recovery before changing a setting"
+  "$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null
+  [[ $(grep -cxF codex "$record") == 1 ]] || fail "retry keeps one recovery record per tool"
+  "$ROOT/bin/omarchy-mise-default-tools" enable >/dev/null
+  [[ $(<"$OMARCHY_TEST_DISABLED") == node ]] || fail "restore after interruption preserves only user-disabled tools"
+done
+pass "tool disabling is recoverable before and after a settings write"
 "$ROOT/bin/omarchy-remove-preinstalls" >/dev/null
 
 [[ ${restored[*]} == "${dropped[*]}" ]] ||
@@ -149,4 +166,3 @@ touch "$mise_config"
 "$ROOT/bin/omarchy-remove-preinstalls" >/dev/null
 [[ -f $mise_config ]] || fail "Remove Preinstalls leaves the package-owned mise declarations in place"
 pass "Remove Preinstalls leaves the package-owned mise declarations in place"
-

@@ -43,11 +43,25 @@ list)
 disable)
   mkdir -p "$(dirname "$disabled_record")"
   mapfile -t already < <(disabled_tools)
+  recorded=()
+  if [[ -f $disabled_record ]]; then
+    mapfile -t recorded <"$disabled_record"
+  fi
   while read -r tool; do
     [[ -n $tool ]] || continue
     if [[ " ${already[*]} " != *" $tool "* ]]; then
+      if [[ " ${recorded[*]} " != *" $tool "* ]]; then
+        record_tmp=$(mktemp "$disabled_record.XXXXXX")
+        trap 'rm -f "$record_tmp"' EXIT
+        if [[ -f $disabled_record ]]; then
+          cat "$disabled_record" >"$record_tmp"
+        fi
+        printf '%s\n' "$tool" >>"$record_tmp"
+        mv "$record_tmp" "$disabled_record"
+        trap - EXIT
+        recorded+=("$tool")
+      fi
       mise settings add disable_tools "$tool"
-      printf '%s\n' "$tool" >>"$disabled_record"
     fi
   done < <(list_tools)
   reshim
