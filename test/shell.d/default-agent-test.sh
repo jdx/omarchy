@@ -750,10 +750,22 @@ grep -F "Could not install Muse Code with mise" "$test_tmp/muse-install-failure-
   fail "failed Muse installation identifies mise"
 pass "failed Muse mise installation preserves the selection and skips login"
 
+# After Remove Preinstalls nothing declares Muse, so selecting it adds it to the
+# user's config.
+: >"$mise_history"
+omarchy-default-agent --install muse >/dev/null
+grep -Fx "use -g $muse_package" "$mise_history" >/dev/null ||
+  fail "Muse selection adds Muse to the user config when no system config declares it"
+rm -f "$agent_file"
+
+# With Omarchy's system config, installing is enough; the user config stays alone.
+mkdir -p "$(dirname "$OMARCHY_MISE_CONFIG_PATH")"
+cp "$ROOT/default/mise/config.toml" "$OMARCHY_MISE_CONFIG_PATH"
 : >"$mise_history"
 : >"$stub_log"
 omarchy-default-agent --install muse >"$test_tmp/muse-install-output"
-grep -Fx "use -g $muse_package" "$mise_history" >/dev/null || fail "visible Muse installation uses the registry shorthand"
+grep -Fx "install $muse_package" "$mise_history" >/dev/null || fail "visible Muse installation uses the registry shorthand"
+grep -q '^use ' "$mise_history" && fail "Muse selection leaves the user config alone when the system config declares it"
 [[ ! -s $stub_log ]] || fail "Muse selection recreates its preinstalled wrapper"
 [[ ! -s $muse_login_log ]] || fail "Muse selection runs a separate login flow"
 [[ $(omarchy-default-agent) == "muse" ]] || fail "visible Muse installation changes the selection"

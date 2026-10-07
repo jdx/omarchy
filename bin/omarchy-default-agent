@@ -67,7 +67,17 @@ else
       { [[ -L $HOME/.local/bin/$agent ]] || ! grep -q '^mise use -g' "$HOME/.local/bin/$agent"; }
   }
   agent_present() { user_install || mise where "$agent_package" &>/dev/null; }
-  agent_install() { user_install || mise use -g "$agent_package"; }
+  # Omarchy's system config declares the default agents as lazy tools, so installing
+  # one is enough and leaves the user's config alone. After Remove Preinstalls
+  # nothing declares it, so select it in the user's config instead.
+  agent_install() {
+    user_install && return
+    if grep -q "^$agent_package = " "${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/config.toml}" 2>/dev/null; then
+      mise install "$agent_package"
+    else
+      mise use -g "$agent_package"
+    fi
+  }
 fi
 
 if [[ $installing == "false" ]] && ! agent_present; then
