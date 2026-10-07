@@ -47,7 +47,7 @@ If you already have a `[settings]` table, add the entry there; extend an existin
 
 ### Removing and restoring defaults
 
-_Remove Preinstalls_ removes the default lazy-tool configuration, and _Restore Preinstalls_ restores it. This configuration is shared by all users, so removing or restoring it affects the defaults for everyone on the machine. To disable only selected tools for yourself, use `disable_tools` instead.
+_Remove Preinstalls_ adds Omarchy's default tools to your `disable_tools` list, and _Restore Preinstalls_ takes back out exactly the entries it added, so tools you disabled yourself stay disabled. Both apply only to your user; other users on the machine keep their own choice.
 
 ## Docker
 

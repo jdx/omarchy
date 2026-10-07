@@ -163,7 +163,7 @@ assert_lazy_stub "$muse_package" muse
 pass "custom agent lazy stubs preserve their mise packages"
 
 source "$ROOT/install/user/mise.sh"
-lazy_config="$ROOT/default/mise/config.toml"
+lazy_config="$ROOT/etc/mise/conf.d/omarchy-tools.toml"
 [[ -f $lazy_config ]] || fail "Omarchy ships the system mise config"
 grep -Fx 'locked_scopes = ["project", "global"]' "$lazy_config" >/dev/null ||
   fail "system tools remain installable when the user enables locked mode"
@@ -760,7 +760,7 @@ rm -f "$agent_file"
 
 # With Omarchy's system config, installing is enough; the user config stays alone.
 mkdir -p "$(dirname "$OMARCHY_MISE_CONFIG_PATH")"
-cp "$ROOT/default/mise/config.toml" "$OMARCHY_MISE_CONFIG_PATH"
+cp "$ROOT/etc/mise/conf.d/omarchy-tools.toml" "$OMARCHY_MISE_CONFIG_PATH"
 : >"$mise_history"
 : >"$stub_log"
 omarchy-default-agent --install muse >"$test_tmp/muse-install-output"

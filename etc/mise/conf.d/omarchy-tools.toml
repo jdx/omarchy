@@ -1,4 +1,4 @@
-# Managed by Omarchy. Override individual tools in ~/.config/mise/config.toml.
+# Managed by Omarchy through the omarchy-settings package. Override individual tools in ~/.config/mise/config.toml.
 
 [settings]
 locked_scopes = ["project", "global"]

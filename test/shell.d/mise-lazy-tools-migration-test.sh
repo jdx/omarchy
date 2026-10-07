@@ -16,16 +16,18 @@ mkdir -p "$test_home/.local/bin" "$mock_bin"
 cat >"$mock_bin/mise" <<'SH'
 #!/bin/bash
 printf '%s\n' "$*" >>"$OMARCHY_TEST_MISE_LOG"
-if [[ $* == 'reshim --system' ]]; then
-  exit "${OMARCHY_TEST_RESHIM_STATUS:-0}"
-fi
+case "$*" in
+'reshim --system') exit "${OMARCHY_TEST_RESHIM_STATUS:-0}" ;;
+'settings add disable_tools '*) printf '%s\n' "$4" >>"$OMARCHY_TEST_DISABLED" ;;
+esac
+exit 0
 SH
 chmod +x "$mock_bin/mise"
 
 cat >"$mock_bin/sudo" <<'SH'
 #!/bin/bash
-[[ ${OMARCHY_TEST_SUDO_STATUS:-0} == 0 ]] || exit "$OMARCHY_TEST_SUDO_STATUS"
-exec "$@"
+echo "the lazy-tool migration must not need sudo" >&2
+exit 1
 SH
 chmod +x "$mock_bin/sudo"
 
@@ -33,6 +35,14 @@ export HOME="$test_home"
 export OMARCHY_PATH="$ROOT"
 export OMARCHY_MISE_CONFIG_PATH="$mise_config"
 export OMARCHY_TEST_MISE_LOG="$mise_log"
+export OMARCHY_TEST_DISABLED="$test_tmp/disable-tools"
+
+# The settings package ships the declarations before migrations run.
+install_package_config() {
+  mkdir -p "$(dirname "$mise_config")"
+  cp "$ROOT/etc/mise/conf.d/omarchy-tools.toml" "$mise_config"
+}
+install_package_config
 export PATH="$mock_bin:$PATH"
 
 write_wrapper() {
@@ -68,18 +78,13 @@ for command in codex playwright omp agy cf cursor-agent basecamp muse; do
   [[ ! -e $test_home/.local/bin/$command ]] || fail "lazy-tool migration removes the recognized $command wrapper"
 done
 grep -Fx 'echo user-owned' "$test_home/.local/bin/hunk" >/dev/null || fail "lazy-tool migration preserves a user-owned command"
-[[ -f $mise_config ]] || fail "lazy-tool migration installs the system mise config"
-grep -Fx 'locked_scopes = ["project", "global"]' "$mise_config" >/dev/null ||
-  fail "lazy-tool migration excludes system tools from invocation-wide locked mode"
-grep -Eq '^uv = \{ version = "latest", lazy = true, minimum_release_age = "0s" \}$' "$mise_config" ||
-  fail "lazy-tool migration declares uv"
-[[ $(grep -c 'lazy = true' "$mise_config") == 20 ]] || fail "lazy-tool migration declares every default tool"
+cmp -s "$ROOT/etc/mise/conf.d/omarchy-tools.toml" "$mise_config" || fail "lazy-tool migration leaves the package-owned config alone"
 grep -Fx 'reshim --system' "$mise_log" >/dev/null || fail "lazy-tool migration reconciles bootstrap shims"
+[[ ! -s $OMARCHY_TEST_DISABLED ]] || fail "lazy-tool migration keeps the default tools enabled"
 pass "lazy-tool migration replaces recognized wrappers with native lazy declarations"
 
 : >"$mise_log"
 bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null
-[[ -f $mise_config ]] || fail "lazy-tool migration remains installed on a second run"
 grep -Fx 'echo user-owned' "$test_home/.local/bin/hunk" >/dev/null || fail "lazy-tool migration remains safe on a second run"
 [[ $(grep -c '^reshim --system$' "$mise_log") == 1 ]] || fail "lazy-tool migration reshims once on a second run"
 pass "lazy-tool migration is idempotent"
@@ -87,10 +92,11 @@ pass "lazy-tool migration is idempotent"
 mkdir -p "$test_home/.local/state/omarchy"
 touch "$test_home/.local/state/omarchy/preinstalls-removed"
 write_wrapper npm:@kitlangton/ghui ghui
-rm -f "$mise_config"
 : >"$mise_log"
 bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null
-[[ ! -e $mise_config ]] || fail "lazy-tool migration honors the preinstall opt-out"
+for tool in codex gh uv npm:cf; do
+  grep -qxF "$tool" "$OMARCHY_TEST_DISABLED" || fail "lazy-tool migration disables the default tools after opt-out" "$tool"
+done
 [[ ! -e $test_home/.local/bin/ghui ]] || fail "lazy-tool migration removes an obsolete wrapper after opt-out"
 grep -Fx 'reshim --system' "$mise_log" >/dev/null || fail "lazy-tool migration removes obsolete bootstrap shims after opt-out"
 pass "lazy-tool migration preserves the preinstall opt-out"
@@ -140,13 +146,18 @@ for form in cooldown-export bail-on-failure mise-exec bare-exec; do
 done
 pass "migration removes all shipped legacy wrapper templates"
 
-# A cancelled password prompt or failed reshim must leave the old wrappers working
-# and the migration pending.
-for failure in OMARCHY_TEST_SUDO_STATUS OMARCHY_TEST_RESHIM_STATUS; do
-  rm -f "$mise_config"
+# Before the settings package delivers the declarations, or when a reshim fails,
+# the old wrappers keep working and the migration stays pending.
+for failure in package reshim; do
   write_wrapper codex codex
-  env "$failure=1" bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null 2>&1 && status=0 || status=$?
-  ((status != 0)) || fail "lazy-tool migration fails when its setup fails" "$failure"
+  if [[ $failure == package ]]; then
+    rm -f "$mise_config"
+    bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null 2>&1 && status=0 || status=$?
+    install_package_config
+  else
+    OMARCHY_TEST_RESHIM_STATUS=1 bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null 2>&1 && status=0 || status=$?
+  fi
+  ((status != 0)) || fail "lazy-tool migration stays pending when its setup fails" "$failure"
   [[ -x $test_home/.local/bin/codex ]] || fail "lazy-tool migration keeps the old wrapper when its setup fails" "$failure"
 done
 rm -f "$test_home/.local/bin/codex"

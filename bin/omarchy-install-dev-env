@@ -70,9 +70,10 @@ python)
   echo -e "Installing Python...\n"
   mise use --global python@latest
   echo -e "\nInstalling uv...\n"
-  # Omarchy's system config declares uv as a lazy tool. After Remove Preinstalls
-  # nothing declares it, so select it in the user's config instead.
-  if grep -q '^uv = ' "${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/config.toml}" 2>/dev/null; then
+  # Omarchy declares uv as a default tool; re-enable it if this user removed the
+  # preinstalls. Without Omarchy's declarations, select it in the user's config.
+  if omarchy-mise-default-tools list | grep -qx uv; then
+    omarchy-mise-default-tools enable uv
     mise install uv
   else
     mise use --global uv

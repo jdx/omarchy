@@ -9,11 +9,8 @@ if gum confirm "Are you sure you want to restore all preinstalled web apps, TUI 
   # Recreates the shipped .desktop launchers (web apps and TUIs).
   omarchy-refresh-applications || exit 1
 
-  # Restore the system-owned lazy mise declarations before rebuilding their
-  # collocated user shim farm.
-  MISE_CONFIG_PATH="${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/config.toml}"
-  if ! sudo install -Dm644 "$OMARCHY_PATH/default/mise/config.toml" "$MISE_CONFIG_PATH" ||
-    ! mise reshim --system; then
+  # Re-enable Omarchy's default mise tools for this user and rebuild their shims.
+  if ! omarchy-mise-default-tools enable; then
     echo -e "\nCould not restore mise tools. Preinstalls remain marked as removed."
     exit 1
   fi

@@ -12,12 +12,8 @@ if gum confirm "Are you sure you want to remove all preinstalled web apps, TUI w
   touch ~/.local/state/omarchy/preinstalls-removed
   hyprctl reload
 
-  # Remove Omarchy's lazy mise declarations and their bootstrap shims.
-  MISE_CONFIG_PATH="${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/config.toml}"
-  sudo rm -f "$MISE_CONFIG_PATH" || exit 1
-  # The removed config supplied this path; keep using the same shim farm while
-  # retiring its lazy tools rather than falling back to the root-owned farm.
-  MISE_SYSTEM_SHIMS_DIR="$HOME/.local/share/mise/shims" mise reshim --system || exit 1
+  # Disable Omarchy's default mise tools for this user and retire their shims.
+  omarchy-mise-default-tools disable || exit 1
 
   # Remove wrappers left by older Omarchy releases.
   rm -f ~/.local/bin/codex ~/.local/bin/claude ~/.local/bin/agy ~/.local/bin/copilot \

@@ -45,14 +45,20 @@ remove_legacy_wrapper() {
   done
 }
 
-# Install the replacement shims first. If this fails, the migration stays
-# pending and the old wrappers keep working.
-if [[ ! -f $HOME/.local/state/omarchy/preinstalls-removed ]]; then
-  MISE_CONFIG_PATH="${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/config.toml}"
-  sudo install -Dm644 "$OMARCHY_PATH/default/mise/config.toml" "$MISE_CONFIG_PATH"
+# The settings package ships the tool declarations. Until it has, stay pending
+# and leave the old wrappers working.
+if [[ ! -f ${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/conf.d/omarchy-tools.toml} ]]; then
+  echo "Waiting for the omarchy-settings package that declares the default mise tools" >&2
+  exit 1
 fi
 
-mise reshim --system
+# The declarations reach every user, so keep them out for a user who removed the
+# preinstalls. Either way, create the replacement shims before removing a wrapper.
+if [[ -f $HOME/.local/state/omarchy/preinstalls-removed ]]; then
+  "$OMARCHY_PATH/bin/omarchy-mise-default-tools" disable
+else
+  mise reshim --system
+fi
 
 remove_legacy_wrapper codex codex aqua:openai/codex npm:@openai/codex
 remove_legacy_wrapper claude claude aqua:anthropics/claude-code
