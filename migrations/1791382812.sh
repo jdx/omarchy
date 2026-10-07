@@ -3,7 +3,7 @@ echo "Switch mise wrappers to registry shorthands"
 legacy_template() {
   local package=$1 bin=$2
 
-  printf '#!/bin/bash\nexport MISE_MINIMUM_RELEASE_AGE=0\nmise use -g --quiet "%s" || exit 1\nexec mise x "%s" -- "%s" "$@"' "$package" "$package" "$bin"
+  printf '#!/bin/bash\nexport MISE_MINIMUM_RELEASE_AGE=0\nmise use -g --quiet "%s" || exit 1\nexec mise x "%s" -- "%s" "$@"\n' "$package" "$package" "$bin"
 }
 
 rewrite_wrapper() {
@@ -12,7 +12,9 @@ rewrite_wrapper() {
 
   [[ -f $wrapper && ! -L $wrapper && -r $wrapper ]] || return 0
   (($(stat -c%s "$wrapper") <= 1024)) || return 0
-  [[ $(<"$wrapper") == "$(legacy_template "$old_package" "$command")" ]] || return 0
+  # Compare whole files: command substitution would drop trailing blank lines a
+  # user added, and those wrappers are theirs.
+  cmp -s "$wrapper" <(legacy_template "$old_package" "$command") || return 0
   mise registry "$new_package" >/dev/null 2>&1 || return 0
 
   omarchy-mise-install "$new_package" "$command"

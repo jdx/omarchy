@@ -16,11 +16,15 @@ mkdir -p "$test_home/.local/bin" "$mock_bin"
 cat >"$mock_bin/mise" <<'SH'
 #!/bin/bash
 printf '%s\n' "$*" >>"$OMARCHY_TEST_MISE_LOG"
+if [[ $* == 'reshim --system' ]]; then
+  exit "${OMARCHY_TEST_RESHIM_STATUS:-0}"
+fi
 SH
 chmod +x "$mock_bin/mise"
 
 cat >"$mock_bin/sudo" <<'SH'
 #!/bin/bash
+[[ ${OMARCHY_TEST_SUDO_STATUS:-0} == 0 ]] || exit "$OMARCHY_TEST_SUDO_STATUS"
 exec "$@"
 SH
 chmod +x "$mock_bin/sudo"
@@ -135,3 +139,26 @@ for form in cooldown-export bail-on-failure mise-exec bare-exec; do
   [[ ! -e $test_home/.local/bin/codex ]] || fail "migration removes the unmodified $form wrapper"
 done
 pass "migration removes all shipped legacy wrapper templates"
+
+# A cancelled password prompt or failed reshim must leave the old wrappers working
+# and the migration pending.
+for failure in OMARCHY_TEST_SUDO_STATUS OMARCHY_TEST_RESHIM_STATUS; do
+  rm -f "$mise_config"
+  write_wrapper codex codex
+  env "$failure=1" bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null 2>&1 && status=0 || status=$?
+  ((status != 0)) || fail "lazy-tool migration fails when its setup fails" "$failure"
+  [[ -x $test_home/.local/bin/codex ]] || fail "lazy-tool migration keeps the old wrapper when its setup fails" "$failure"
+done
+rm -f "$test_home/.local/bin/codex"
+pass "lazy-tool migration keeps old wrappers until the replacement shims exist"
+
+# The shorthand migration runs first. It must leave a customized wrapper alone too,
+# or it would rewrite it into a template the lazy-tool migration then deletes.
+write_wrapper npm:playwright playwright
+printf '\n' >>"$test_home/.local/bin/playwright"
+cp "$test_home/.local/bin/playwright" "$test_tmp/expected-wrapper"
+PATH="$mock_bin:$ROOT/bin:$PATH" bash -euo pipefail "$ROOT/migrations/1791382812.sh" >/dev/null
+PATH="$mock_bin:$ROOT/bin:$PATH" bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null
+cmp -s "$test_home/.local/bin/playwright" "$test_tmp/expected-wrapper" ||
+  fail "shorthand and lazy-tool migrations preserve a wrapper with a trailing blank line"
+pass "shorthand and lazy-tool migrations preserve customized wrappers together"

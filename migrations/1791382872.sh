@@ -45,6 +45,15 @@ remove_legacy_wrapper() {
   done
 }
 
+# Install the replacement shims first. If this fails, the migration stays
+# pending and the old wrappers keep working.
+if [[ ! -f $HOME/.local/state/omarchy/preinstalls-removed ]]; then
+  MISE_CONFIG_PATH="${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/config.toml}"
+  sudo install -Dm644 "$OMARCHY_PATH/default/mise/config.toml" "$MISE_CONFIG_PATH"
+fi
+
+mise reshim --system
+
 remove_legacy_wrapper codex codex aqua:openai/codex npm:@openai/codex
 remove_legacy_wrapper claude claude aqua:anthropics/claude-code
 remove_legacy_wrapper crush crush aqua:charmbracelet/crush
@@ -65,10 +74,3 @@ remove_legacy_wrapper cf npm:cf
 remove_legacy_wrapper cursor-agent cursor-agent
 remove_legacy_wrapper basecamp basecamp github:basecamp/basecamp-cli
 remove_legacy_wrapper muse muse 'http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]'
-
-if [[ ! -f $HOME/.local/state/omarchy/preinstalls-removed ]]; then
-  MISE_CONFIG_PATH="${OMARCHY_MISE_CONFIG_PATH:-/etc/mise/config.toml}"
-  sudo install -Dm644 "$OMARCHY_PATH/default/mise/config.toml" "$MISE_CONFIG_PATH"
-fi
-
-mise reshim --system

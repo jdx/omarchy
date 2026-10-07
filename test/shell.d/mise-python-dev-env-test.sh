@@ -22,10 +22,23 @@ export HOME="$test_home"
 export OMARCHY_TEST_MISE_LOG="$mise_log"
 export PATH="$mock_bin:$PATH"
 
+mise_config="$test_tmp/etc/mise/config.toml"
+mkdir -p "$(dirname "$mise_config")"
+cp "$ROOT/default/mise/config.toml" "$mise_config"
+export OMARCHY_MISE_CONFIG_PATH="$mise_config"
+
 bash "$ROOT/bin/omarchy-install-dev-env" python >/dev/null
 grep -Fx 'use --global python@latest' "$mise_log" >/dev/null || fail "Python setup installs Python through mise"
 grep -Fx 'install uv' "$mise_log" >/dev/null || fail "Python setup installs the system-configured uv"
+grep -Fx 'use --global uv' "$mise_log" >/dev/null && fail "Python setup leaves the system-configured uv out of the user config"
 pass "Python setup installs Python and uv through mise"
+
+# After Remove Preinstalls, nothing else declares uv.
+rm "$mise_config"
+: >"$mise_log"
+bash "$ROOT/bin/omarchy-install-dev-env" python >/dev/null
+grep -Fx 'use --global uv' "$mise_log" >/dev/null || fail "Python setup selects uv when no system config declares it"
+pass "Python setup selects uv after Remove Preinstalls"
 
 touch "$test_home/.local/bin/uv" "$test_home/.local/bin/uvx" "$test_home/.cargo/bin/uv"
 : >"$mise_log"
