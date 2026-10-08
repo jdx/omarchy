@@ -74,9 +74,11 @@ if (( auto )) && [[ -e $disabled ]]; then
 fi
 
 # machine variants keep monitors.lua per machine; --take-remote-all lets
-# `omarchy dots pull <url>` set up a machine that already has history
+# `omarchy dots pull <url>` set up a machine that already has history; and
+# `mise dot sync` must refuse to publish saved versions that look like secrets
 if ! mise dot track --help 2>/dev/null | grep -q -- '--machine' ||
-  ! mise bootstrap --help 2>/dev/null | grep -q -- '--take-remote-all'; then
+  ! mise bootstrap --help 2>/dev/null | grep -q -- '--take-remote-all' ||
+  ! mise dot sync --help 2>/dev/null | grep -q -- 'look like they contain secrets'; then
   stand_down "Omarchy dots needs a newer mise. Run omarchy update, then omarchy dots enable."
 fi
 

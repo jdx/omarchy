@@ -15,7 +15,7 @@ Dots saves the history of the user's key configs and, optionally, shares them be
 
 - the user ran `omarchy dots disable` (`~/.local/state/omarchy/dots-disabled`)
 - `~/.git`, chezmoi, or yadm is present, or a key config is a symlink, as Stow makes
-- mise lacks machine variants or `bootstrap --adopt --take-remote-all`
+- mise lacks machine variants, `bootstrap --adopt --take-remote-all`, or the check that makes `mise dot sync` refuse versions that look like secrets (mise 2026.10.5)
 
 `omarchy dots enable` reports the same reasons, and `--force` overrides the dotfile-manager check. Configs stay as they are, and `.bak` files from `omarchy refresh` keep working either way.
 

@@ -30,6 +30,9 @@ case "$1 $2" in
   "bootstrap --help")
     [[ -n ${TEST_OLD_MISE:-} ]] || echo "--take-remote-all"
     ;;
+  "dot sync")
+    [[ -n ${TEST_OLD_MISE:-} || -n ${TEST_NO_SECRET_SCAN:-} ]] || echo "--allow-plaintext-history  versions that look like they contain secrets"
+    ;;
 esac
 exit 0
 SH
@@ -149,6 +152,11 @@ new_home old
 TEST_OLD_MISE=1 run omarchy-dots-enable --auto >/dev/null
 [[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for an older mise"
 pass "enable stands down for a mise without machine variants"
+
+new_home nosecretscan
+TEST_NO_SECRET_SCAN=1 run omarchy-dots-enable --auto >/dev/null
+[[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for a mise that publishes secrets"
+pass "enable stands down for a mise without the secret check"
 
 # ---- the dots list, read by a real mise
 
