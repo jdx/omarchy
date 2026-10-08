@@ -167,10 +167,19 @@ lazy_config="$ROOT/etc/mise/conf.d/omarchy-tools.toml"
 [[ -f $lazy_config ]] || fail "Omarchy ships the system mise config"
 grep -Fx 'locked_scopes = ["project", "global"]' "$lazy_config" >/dev/null ||
   fail "system tools remain installable when the user enables locked mode"
-for tool in "$agy_package" "$grok_package" "$omp_package" "$crush_package" "$ori_package" "$cursor_agent_package" "$muse_package" basecamp; do
+for tool in "$agy_package" "$grok_package" "$omp_package" "$crush_package" "$cursor_agent_package" "$muse_package"; do
+  grep -Eq "^$tool = \\{ version = \"latest\", lazy = true, auto_update = true, minimum_release_age = \"0s\" \\}$" "$lazy_config" ||
+    fail "user setup declares $tool as a self-updating native lazy tool"
+done
+for tool in "$ori_package" basecamp; do
   grep -Eq "^$tool = \\{ version = \"latest\", lazy = true, minimum_release_age = \"0s\" \\}$" "$lazy_config" ||
     fail "user setup declares $tool as a native lazy tool"
 done
+for tool in codex claude copilot opencode pi; do
+  grep -Eq "^$tool = \\{ version = \"latest\", lazy = true, auto_update = true, " "$lazy_config" ||
+    fail "user setup declares $tool as a self-updating native lazy tool"
+done
+[[ $(grep -c 'auto_update = true' "$lazy_config") == 11 ]] || fail "only the agent CLIs update themselves"
 grep -Eq '^uv = \{ version = "latest", lazy = true, minimum_release_age = "0s" \}$' "$lazy_config" ||
   fail "user setup declares uv as a native lazy tool"
 [[ $(grep -c 'lazy = true' "$lazy_config") == 20 ]] || fail "user setup declares every default mise tool as lazy"
