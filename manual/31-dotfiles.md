@@ -34,7 +34,7 @@ On the other machine, go to _Setup > Dots > Pull_ (or run `omarchy dots pull <ur
 
 Each machine keeps its own `~/.config/hypr/monitors.lua`, since your laptop's screen layout has no business on your desktop.
 
-Every saved version is pushed, so keep secrets like API keys out of these files. If you already manage your dotfiles with Stow, chezmoi, or yadm, Omarchy leaves dots off; turn them on anyway with `omarchy dots enable --force`, or off with `omarchy dots disable`.
+Every saved version is pushed, so keep secrets like API keys out of these files (`~/.bashrc` and your hooks are the usual culprits). Dots refuses to push a version that looks like it holds a token or key, and tells you which file and line. Removing a secret from a file doesn't remove it from earlier versions, so rotate it and clear that history first. When Omarchy creates the repository for you, it also runs `gh auth setup-git`, which makes `gh` your git credential helper for github.com. If you already manage your dotfiles with Stow, chezmoi, or yadm, Omarchy leaves dots off; turn them on anyway with `omarchy dots enable --force`, or off with `omarchy dots disable`.
 
 ### Starting your own apps with the session
 

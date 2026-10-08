@@ -21,7 +21,7 @@ Dots saves the history of the user's key configs and, optionally, shares them be
 
 ## Sync
 
-`omarchy dots push` connects a private repository the first time (creating one with `gh` when signed in, and checking that an existing one is private), then saves and runs `mise dot sync`. `omarchy dots pull` fetches and applies; when files conflict, it offers the repository's versions with `--take-remote-all`, which saves this machine's versions first.
+`omarchy dots push` connects a private repository the first time (creating one with `gh` when signed in, and checking that an existing one is private), then saves and runs `mise dot sync`, which refuses to publish a saved version with a line that looks like a secret (a token, a private key, or a `*_KEY=`/`*_TOKEN=` assignment) and names the file and line. Omarchy never passes `--allow-plaintext-history`. When it creates the repository with `gh`, it runs `gh auth setup-git`, which makes `gh` the global git credential helper for github.com; the push says so. `omarchy dots pull` fetches and applies; when files conflict, it offers the repository's versions with `--take-remote-all`, which saves this machine's versions first.
 
 On a machine that is not connected, `omarchy dots pull <url>` runs `mise bootstrap --adopt <url> --replace-history --take-remote-all --only dotfiles`. Every install has local history from its first snapshot, which is unrelated to the repository's, so the machine's history is replaced by the shared one; files that differ take the repository's version after this machine's version is saved on top of the adopted history.
 
