@@ -60,12 +60,26 @@ other_manager() {
     echo "yadm manages your dotfiles"
     return 0
   fi
-  for path in "$HOME/.bashrc" "$HOME/.config/hypr" "$HOME"/.config/hypr/*.lua "$HOME/.config/omarchy/shell.json"; do
-    if [[ -L $path ]]; then
-      echo "${path/#$HOME/\~} is a link, as a dotfile manager like Stow makes"
-      return 0
-    fi
-  done
+  # Stow may link any tracked file, a directory above it, or a file inside a
+  # tracked directory, so check each entry of the dots list all three ways.
+  local entry
+  while read -r entry; do
+    entry="${entry/#\~/$HOME}"
+    path=$entry
+    while [[ $path == "$HOME"/* ]]; do
+      if [[ -L $path ]]; then
+        echo "${path/#$HOME/\~} is a link, as a dotfile manager like Stow makes"
+        return 0
+      fi
+      path=$(dirname "$path")
+    done
+    for path in "$entry"/*; do
+      if [[ -L $path ]]; then
+        echo "${path/#$HOME/\~} is a link, as a dotfile manager like Stow makes"
+        return 0
+      fi
+    done
+  done < <(grep -oE '^"~[^"]+"' "$OMARCHY_PATH/default/mise/dots.toml" | tr -d '"')
   return 1
 }
 

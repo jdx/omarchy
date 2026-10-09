@@ -30,17 +30,29 @@ case "$1 $2" in
   "bootstrap --help")
     [[ -n ${TEST_OLD_MISE:-} ]] || echo "--take-remote-all"
     ;;
+  "dot history")
+    case "$*" in
+      *--path*) printf '%s\n' '[{"id":42,"created_at":"2026-10-09T10:35:50Z","description":"omarchy refresh hyprland"},{"id":41,"created_at":"2026-10-08T09:00:00Z","description":"edit"}]' ;;
+      *) printf '%s\n' '[{"id":42,"changes":{"modified":["~/.config/hypr/bindings.lua"],"added":["~/.config/starship.toml"]}},{"id":41,"changes":{"deleted":["~/.config/hypr/bindings.lua"]}}]' ;;
+    esac
+    ;;
   "dot sync")
     [[ -n ${TEST_OLD_MISE:-} || -n ${TEST_NO_SECRET_SCAN:-} ]] || echo "--allow-plaintext-history  versions that look like they contain secrets"
     ;;
 esac
 exit 0
 SH
+# gum picks the first line it is given; TEST_GUM_CANCEL simulates escape.
+cat >"$stub_bin/gum" <<'SH'
+#!/bin/bash
+[[ -z ${TEST_GUM_CANCEL:-} ]] || exit 130
+head -n 1
+SH
 cat >"$stub_bin/systemctl" <<'SH'
 #!/bin/bash
 exit 1
 SH
-chmod +x "$stub_bin/mise" "$stub_bin/systemctl"
+chmod +x "$stub_bin/mise" "$stub_bin/gum" "$stub_bin/systemctl"
 
 new_home() {
   home="$test_tmp/home-$1"
@@ -148,6 +160,29 @@ run omarchy-dots-enable --auto >/dev/null
 [[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for linked configs"
 pass "enable stands down for configs linked by Stow"
 
+new_home stowfile
+mkdir -p "$home/dotfiles"
+touch "$home/dotfiles/starship.toml"
+ln -s "$home/dotfiles/starship.toml" "$home/.config/starship.toml"
+run omarchy-dots-enable --auto >/dev/null
+[[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for a linked tracked file"
+pass "enable stands down when Stow links any tracked file"
+
+new_home stowdir
+mkdir -p "$home/dotfiles/foot"
+ln -s "$home/dotfiles/foot" "$home/.config/foot"
+run omarchy-dots-enable --auto >/dev/null
+[[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for a linked parent directory"
+pass "enable stands down when Stow links a directory above a tracked file"
+
+new_home customdir
+custom="$test_tmp/custom-mise"
+MISE_CONFIG_DIR="$custom" run omarchy-dots-enable >/dev/null
+MISE_CONFIG_DIR="$custom" run omarchy-dots-enabled || fail "dots are on under a custom MISE_CONFIG_DIR"
+run omarchy-dots-enabled && fail "dots are off for the default mise directory"
+! grep -q 'conf.d/omarchy-dots.toml' "$ROOT/default/omarchy/omarchy-menu.jsonc" || fail "menu guards use omarchy-dots-enabled"
+pass "the menu and commands agree on where dots are linked"
+
 new_home old
 TEST_OLD_MISE=1 run omarchy-dots-enable --auto >/dev/null
 [[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for an older mise"
@@ -157,6 +192,28 @@ new_home nosecretscan
 TEST_NO_SECRET_SCAN=1 run omarchy-dots-enable --auto >/dev/null
 [[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for a mise that publishes secrets"
 pass "enable stands down for a mise without the secret check"
+
+# ---- restore
+
+new_home restore
+: >"$calls"
+run omarchy-dots-restore >/dev/null
+grep -qx 'dot history --json --limit 0' "$calls" || fail "restore lists files with saved versions"
+grep -qx "dot history --json --limit 0 --path $home/.config/hypr/bindings.lua" "$calls" || fail "restore lists the picked file's versions"
+grep -qx "dot rollback $home/.config/hypr/bindings.lua --to 42" "$calls" || fail "restore rolls the picked file back to the picked version"
+pass "restore picks a file and a version, then rolls back"
+
+: >"$calls"
+run omarchy-dots-restore "$home/.config/hypr/input.lua" --at 41 >/dev/null
+grep -qx "dot rollback $home/.config/hypr/input.lua --to 41" "$calls" || fail "restore passes the given file and version"
+pass "restore with a file and version skips the pickers"
+
+: >"$calls"
+if TEST_GUM_CANCEL=1 run omarchy-dots-restore >/dev/null 2>&1; then
+  fail "cancelling the picker stops restore"
+fi
+! grep -q '^dot rollback' "$calls" || fail "a cancelled restore rolls nothing back"
+pass "cancelling a picker restores nothing"
 
 # ---- the dots list, read by a real mise
 
