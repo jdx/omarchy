@@ -11,7 +11,7 @@ Use a registry shorthand and set `lazy = true` so the first command invocation i
 codex = { version = "latest", lazy = true, minimum_release_age = "0s" }
 ```
 
-Agent CLIs also set `auto_update = "4h"`, so mise upgrades them before they run (at most once every four hours) instead of leaving them on whatever version was installed first. They need mise 2026.10.1 or newer. Leave it off for tools that mise itself calls, such as `gh`, which is mise's GitHub credential helper.
+Agent CLIs also set `auto_update = "4h"`, so mise upgrades them before they run (at most once every four hours) instead of leaving them on whatever version was installed first. They need mise 2026.10.9 or newer: from 2026.10.7, a shell prompt starts these updates, and before 2026.10.9 it also installed every lazy tool nobody had run yet. Leave it off for tools that mise itself calls, such as `gh`, which is mise's GitHub credential helper.
 
 ```toml
 [tools]

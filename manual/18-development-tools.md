@@ -36,7 +36,7 @@ Python setup also installs `uv` through mise. Removing the Python development en
 
 ### Using your own installation
 
-To use a separately installed tool, disable mise's copy in `~/.config/mise/config.toml`. For example, if you installed Cursor CLI yourself:
+mise's commands come before `~/.local/bin` on `PATH`, so a tool you installed yourself, for example with Claude Code's or Cursor's own installer, still runs mise's copy. To use yours instead, disable mise's copy in `~/.config/mise/config.toml`. For example, if you installed Cursor CLI yourself:
 
 ```toml
 [settings]
