@@ -712,17 +712,26 @@ grep -F "Could not install Muse Code with mise" "$test_tmp/muse-install-failure-
   fail "failed Muse installation identifies mise"
 pass "failed Muse mise installation preserves the selection and skips login"
 
-# After Remove Preinstalls nothing declares Muse, so selecting it adds it to the
-# user's config.
+# Without Omarchy's declarations nothing declares Muse, so selecting it adds it
+# to the user's config.
 : >"$mise_history"
 omarchy-default-agent --install muse >/dev/null
 grep -Fx "use -g $muse_package" "$mise_history" >/dev/null ||
   fail "Muse selection adds Muse to the user config when no system config declares it"
 rm -f "$agent_file"
 
-# With Omarchy's system config, installing is enough; the user config stays alone.
-mkdir -p "$(dirname "$OMARCHY_MISE_CONFIG_PATH")"
+# mise skips the declarations for a user who removed the preinstalls, so the
+# same applies.
+mkdir -p "$(dirname "$OMARCHY_MISE_CONFIG_PATH")" "$test_home/.config/mise"
 cp "$ROOT/etc/mise/conf.d/omarchy-tools.toml" "$OMARCHY_MISE_CONFIG_PATH"
+printf 'ignored_config_paths = ["%s"]\n' "$OMARCHY_MISE_CONFIG_PATH" >"$test_home/.config/mise/miserc.toml"
+: >"$mise_history"
+omarchy-default-agent --install muse >/dev/null
+grep -Fx "use -g $muse_package" "$mise_history" >/dev/null ||
+  fail "Muse selection adds Muse to the user config after Remove Preinstalls"
+rm -f "$agent_file" "$test_home/.config/mise/miserc.toml"
+
+# With Omarchy's system config, installing is enough; the user config stays alone.
 : >"$mise_history"
 : >"$stub_log"
 omarchy-default-agent --install muse >"$test_tmp/muse-install-output"

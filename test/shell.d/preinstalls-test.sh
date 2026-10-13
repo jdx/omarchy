@@ -35,22 +35,10 @@ cat >"$mock_bin/omarchy-pkg-drop" <<'SH'
 printf '%s\n' "$@" >"$OMARCHY_TEST_PKG_LOG"
 SH
 
-# Keeps disable_tools in a file so the opt-out round trip can be checked.
 cat >"$mock_bin/mise" <<'SH'
 #!/bin/bash
 printf '%s\n' "$*" >>"$OMARCHY_TEST_MISE_LOG"
-case "$*" in
-'reshim --system') exit "${OMARCHY_TEST_RESHIM_STATUS:-0}" ;;
-'settings get disable_tools')
-  printf '[%s]\n' "$(sed 's/.*/"&"/' "$OMARCHY_TEST_DISABLED" | paste -sd, - | sed 's/,/, /g')" ;;
-'settings add disable_tools '*)
-  [[ ${OMARCHY_TEST_FAIL_BEFORE_DISABLE:-} == "$4" ]] && exit 1
-  printf '%s\n' "$4" >>"$OMARCHY_TEST_DISABLED"
-  [[ ${OMARCHY_TEST_FAIL_AFTER_DISABLE:-} == "$4" ]] && exit 1
-  ;;
-'settings set disable_tools '*) tr ',' '\n' <<<"$4" >"$OMARCHY_TEST_DISABLED" ;;
-'settings unset disable_tools') : >"$OMARCHY_TEST_DISABLED" ;;
-esac
+[[ $* == 'reshim --system' ]] && exit "${OMARCHY_TEST_RESHIM_STATUS:-0}"
 exit 0
 SH
 
@@ -68,11 +56,14 @@ export HOME="$test_home"
 export OMARCHY_PATH="$ROOT"
 export OMARCHY_MISE_CONFIG_PATH="$mise_config"
 export OMARCHY_TEST_MISE_LOG="$test_tmp/mise-log"
-export OMARCHY_TEST_DISABLED="$test_tmp/disable-tools"
 mkdir -p "$(dirname "$mise_config")"
 cp "$ROOT/etc/mise/conf.d/omarchy-tools.toml" "$mise_config"
-# The user's own entry must survive the opt-out round trip.
-printf 'node\n' >"$OMARCHY_TEST_DISABLED"
+# The user's own setting must survive the opt-out round trip, and the opt-out
+# line must start on a line of its own.
+miserc="$test_home/.config/mise/miserc.toml"
+ignore_line="ignored_config_paths = [\"$mise_config\"]"
+mkdir -p "$(dirname "$miserc")"
+printf 'env = ["work"]' >"$miserc"
 export OMARCHY_TEST_PKG_LOG="$pkg_log"
 
 # Both scripts restore and remove the same set, and every package in it has to be
@@ -85,30 +76,39 @@ mapfile -t restored <"$pkg_log"
 grep -Fx 'reshim --system' "$OMARCHY_TEST_MISE_LOG" >/dev/null || fail "Install Preinstalls rebuilds the mise shims"
 pass "Install Preinstalls rebuilds the mise shims"
 
+: >"$OMARCHY_TEST_MISE_LOG"
 "$ROOT/bin/omarchy-remove-preinstalls" >/dev/null
 mapfile -t dropped <"$pkg_log"
-for tool in codex gh uv npm:cf node; do
-  grep -qxF "$tool" "$OMARCHY_TEST_DISABLED" || fail "Remove Preinstalls disables Omarchy's mise tools for this user" "$tool"
-done
-[[ $(grep -c . "$OMARCHY_TEST_DISABLED") == 21 ]] || fail "Remove Preinstalls disables each default tool once"
-pass "Remove Preinstalls disables Omarchy's mise tools for this user"
+[[ $(<"$miserc") == "env = [\"work\"]"$'\n'"$ignore_line" ]] ||
+  fail "Remove Preinstalls has mise skip Omarchy's declarations for this user" "$(<"$miserc")"
+grep -Fx 'reshim' "$OMARCHY_TEST_MISE_LOG" >/dev/null || fail "Remove Preinstalls retires the lazy shims"
+pass "Remove Preinstalls has mise skip Omarchy's declarations for this user"
 
 "$ROOT/bin/omarchy-install-preinstalls" >/dev/null
-[[ $(<"$OMARCHY_TEST_DISABLED") == node ]] || fail "Install Preinstalls re-enables only the tools Remove Preinstalls disabled"
-pass "Install Preinstalls re-enables only the tools Remove Preinstalls disabled"
+[[ $(<"$miserc") == 'env = ["work"]' ]] || fail "Install Preinstalls removes only its own miserc line" "$(<"$miserc")"
+pass "Install Preinstalls removes only its own miserc line"
 
-# A failure on either side of the settings write leaves recoverable progress.
-for failure in OMARCHY_TEST_FAIL_BEFORE_DISABLE OMARCHY_TEST_FAIL_AFTER_DISABLE; do
-  env "$failure=codex" "$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null && status=0 || status=$?
-  ((status == 1)) || fail "disable reports an interrupted setting write" "$failure returned $status"
-  record="$HOME/.local/state/omarchy/mise-disabled-default-tools"
-  grep -qxF codex "$record" || fail "disable records recovery before changing a setting"
-  "$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null
-  [[ $(grep -cxF codex "$record") == 1 ]] || fail "retry keeps one recovery record per tool"
-  "$ROOT/bin/omarchy-mise-default-tools" enable >/dev/null
-  [[ $(<"$OMARCHY_TEST_DISABLED") == node ]] || fail "restore after interruption preserves only user-disabled tools"
-done
-pass "tool disabling is recoverable before and after a settings write"
+rm "$miserc"
+"$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null
+"$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null
+[[ $(<"$miserc") == "$ignore_line" ]] || fail "opting out twice adds the line once" "$(<"$miserc")"
+"$ROOT/bin/omarchy-mise-default-tools" enable >/dev/null
+[[ ! -e $miserc ]] || fail "opting back in removes a miserc that held only the opt-out"
+pass "opting out is idempotent and reversible"
+
+# A list the user wrote is theirs to edit. Once it names the file, both
+# directions agree that the user has opted out.
+printf 'ignored_config_paths = ["~/old"]\n' >"$miserc"
+"$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null 2>&1 && status=0 || status=$?
+((status == 1)) || fail "opting out refuses to add a second ignored_config_paths" "exit status was $status"
+[[ $(<"$miserc") == 'ignored_config_paths = ["~/old"]' ]] || fail "opting out leaves the user's list alone"
+printf 'ignored_config_paths = ["~/old", "%s"]\n' "$mise_config" >"$miserc"
+"$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null || fail "opting out accepts the file in the user's own list"
+"$ROOT/bin/omarchy-mise-default-tools" declares codex && fail "a user's own list keeps Omarchy's tools undeclared"
+"$ROOT/bin/omarchy-mise-default-tools" enable >/dev/null 2>&1 && status=0 || status=$?
+((status == 1)) || fail "opting back in reports a list it cannot edit" "exit status was $status"
+rm "$miserc"
+pass "an existing ignored_config_paths is left to the user"
 "$ROOT/bin/omarchy-remove-preinstalls" >/dev/null
 
 [[ ${restored[*]} == "${dropped[*]}" ]] ||

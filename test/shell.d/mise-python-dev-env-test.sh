@@ -15,9 +15,6 @@ mkdir -p "$mock_bin" "$test_home/.local/bin" "$test_home/.cargo/bin"
 cat >"$mock_bin/mise" <<'SH'
 #!/bin/bash
 printf '%s\n' "$*" >>"$OMARCHY_TEST_MISE_LOG"
-if [[ $* == 'settings get disable_tools' ]]; then
-  printf '%s\n' "${OMARCHY_TEST_DISABLE_TOOLS:-[]}"
-fi
 SH
 chmod +x "$mock_bin/mise"
 
@@ -36,16 +33,19 @@ grep -Fx 'install uv' "$mise_log" >/dev/null || fail "Python setup installs the 
 grep -Fx 'use --global uv' "$mise_log" >/dev/null && fail "Python setup leaves the system-configured uv out of the user config"
 pass "Python setup installs Python and uv through mise"
 
-# A user who removed the preinstalls gets uv back without re-enabling the rest.
-mkdir -p "$test_home/.local/state/omarchy"
-printf 'gh\nuv\n' >"$test_home/.local/state/omarchy/mise-disabled-default-tools"
+# mise skips Omarchy's declarations for a user who removed the preinstalls, so
+# uv goes in their own config, leaving the opt-out in place.
+miserc="$test_home/.config/mise/miserc.toml"
+mkdir -p "$(dirname "$miserc")"
+printf 'ignored_config_paths = ["%s"]\n' "$mise_config" >"$miserc"
+cp "$miserc" "$test_tmp/expected-miserc"
 : >"$mise_log"
-OMARCHY_TEST_DISABLE_TOOLS='["gh", "node", "uv"]' bash "$ROOT/bin/omarchy-install-dev-env" python >/dev/null
-grep -Fx 'settings set disable_tools gh,node' "$mise_log" >/dev/null || fail "Python setup keeps the user's other disabled tools"
-grep -Fx 'install uv' "$mise_log" >/dev/null || fail "Python setup installs uv after Remove Preinstalls"
-[[ $(<"$test_home/.local/state/omarchy/mise-disabled-default-tools") == gh ]] ||
-  fail "Python setup re-enables only uv after Remove Preinstalls"
-pass "Python setup re-enables uv after Remove Preinstalls"
+bash "$ROOT/bin/omarchy-install-dev-env" python >/dev/null
+grep -Fx 'use --global uv' "$mise_log" >/dev/null || fail "Python setup selects uv after Remove Preinstalls"
+grep -Fx 'install uv' "$mise_log" >/dev/null && fail "Python setup does not count on Omarchy's uv after Remove Preinstalls"
+cmp -s "$miserc" "$test_tmp/expected-miserc" || fail "Python setup keeps the preinstall opt-out"
+rm "$miserc"
+pass "Python setup selects uv after Remove Preinstalls"
 
 # Without Omarchy's declarations, nothing else declares uv.
 rm "$mise_config"

@@ -68,12 +68,12 @@ else
   }
   agent_present() { user_install || mise where "$agent_package" &>/dev/null; }
   # Omarchy declares the default agents as mise tools, so installing one is
-  # enough and leaves the user's config alone. Re-enable it first if this user
-  # removed the preinstalls. Without Omarchy's declarations, select it instead.
+  # enough and leaves the user's config alone. A user who removed the
+  # preinstalls, like one without Omarchy's declarations, selects it instead.
   agent_install() {
     user_install && return
-    if omarchy-mise-default-tools list | grep -qxF "$agent_package"; then
-      omarchy-mise-default-tools enable "$agent_package" && mise install "$agent_package"
+    if omarchy-mise-default-tools declares "$agent_package"; then
+      mise install "$agent_package"
     else
       mise use -g "$agent_package"
     fi

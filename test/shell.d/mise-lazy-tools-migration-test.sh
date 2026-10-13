@@ -16,10 +16,7 @@ mkdir -p "$test_home/.local/bin" "$mock_bin"
 cat >"$mock_bin/mise" <<'SH'
 #!/bin/bash
 printf '%s\n' "$*" >>"$OMARCHY_TEST_MISE_LOG"
-case "$*" in
-'reshim --system') exit "${OMARCHY_TEST_RESHIM_STATUS:-0}" ;;
-'settings add disable_tools '*) printf '%s\n' "$4" >>"$OMARCHY_TEST_DISABLED" ;;
-esac
+[[ $* == 'reshim --system' ]] && exit "${OMARCHY_TEST_RESHIM_STATUS:-0}"
 exit 0
 SH
 chmod +x "$mock_bin/mise"
@@ -35,7 +32,7 @@ export HOME="$test_home"
 export OMARCHY_PATH="$ROOT"
 export OMARCHY_MISE_CONFIG_PATH="$mise_config"
 export OMARCHY_TEST_MISE_LOG="$mise_log"
-export OMARCHY_TEST_DISABLED="$test_tmp/disable-tools"
+miserc="$test_home/.config/mise/miserc.toml"
 
 # The settings package ships the declarations before migrations run.
 install_package_config() {
@@ -80,7 +77,7 @@ done
 grep -Fx 'echo user-owned' "$test_home/.local/bin/hunk" >/dev/null || fail "lazy-tool migration preserves a user-owned command"
 cmp -s "$ROOT/etc/mise/conf.d/omarchy-tools.toml" "$mise_config" || fail "lazy-tool migration leaves the package-owned config alone"
 grep -Fx 'reshim --system' "$mise_log" >/dev/null || fail "lazy-tool migration reconciles bootstrap shims"
-[[ ! -s $OMARCHY_TEST_DISABLED ]] || fail "lazy-tool migration keeps the default tools enabled"
+[[ ! -e $miserc ]] || fail "lazy-tool migration keeps the default tools enabled"
 pass "lazy-tool migration replaces recognized wrappers with native lazy declarations"
 
 : >"$mise_log"
@@ -94,11 +91,10 @@ touch "$test_home/.local/state/omarchy/preinstalls-removed"
 write_wrapper npm:@kitlangton/ghui ghui
 : >"$mise_log"
 bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null
-for tool in codex gh uv npm:cf; do
-  grep -qxF "$tool" "$OMARCHY_TEST_DISABLED" || fail "lazy-tool migration disables the default tools after opt-out" "$tool"
-done
+grep -qxF "ignored_config_paths = [\"$mise_config\"]" "$miserc" ||
+  fail "lazy-tool migration keeps Omarchy's declarations out after opt-out"
 [[ ! -e $test_home/.local/bin/ghui ]] || fail "lazy-tool migration removes an obsolete wrapper after opt-out"
-grep -Fx 'reshim --system' "$mise_log" >/dev/null || fail "lazy-tool migration removes obsolete bootstrap shims after opt-out"
+grep -Fx 'reshim' "$mise_log" >/dev/null || fail "lazy-tool migration removes obsolete bootstrap shims after opt-out"
 pass "lazy-tool migration preserves the preinstall opt-out"
 
 # A user-owned symlink or command at a retired wrapper path must survive.
