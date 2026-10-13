@@ -1,5 +1,5 @@
-echo "Refresh the cf (Cloudflare CLI) lazy tool"
+echo "Install cf (Cloudflare CLI) via mise wrapper"
 
 if [[ ! -f $HOME/.local/state/omarchy/preinstalls-removed ]]; then
-  mise reshim --system
+  omarchy-mise-install npm:cf cf
 fi

@@ -138,8 +138,10 @@ legacy_omp_package="github:can1357/oh-my-pi"
 crush_package="crush"
 agy_package="antigravity-cli"
 ori_package="ori"
+legacy_ori_package="github:OpenRouterLabs/ori-releases"
 cursor_agent_package="cursor-agent"
 muse_package="muse"
+legacy_muse_package="http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]"
 
 assert_lazy_stub() {
   local package=$1
@@ -190,97 +192,49 @@ source "$ROOT/install/user/mise.sh"
 [[ ! -s $stub_log ]] || fail "user setup must not create handwritten mise wrappers"
 pass "user setup leaves ordinary lazy wrappers to mise"
 
-write_legacy_wrapper() {
-  local package=$1 command=$2
-
-  printf '#!/bin/bash\nexport MISE_MINIMUM_RELEASE_AGE=0\nmise use -g --quiet "%s" || exit 1\nexec mise x "%s" -- "%s" "$@"\n' \
-    "$package" "$package" "$command" >"$test_home/.local/bin/$command"
-  chmod +x "$test_home/.local/bin/$command"
-}
-
-wrapper_migrations=(
-  'npm:playwright|playwright|playwright'
-  'github:can1357/oh-my-pi|oh-my-pi|omp'
-  'npm:@xai-official/grok|grok|grok'
-  'npm:@kitlangton/ghui|ghui|ghui'
-  'aqua:modem-dev/hunk|hunk|hunk'
-  'github:basecamp/hey-cli|hey-cli|hey'
-  'github:OpenRouterLabs/ori-releases|ori|ori'
-)
-
-for mapping in "${wrapper_migrations[@]}"; do
-  IFS='|' read -r legacy_package shorthand_package command <<<"$mapping"
-  write_legacy_wrapper "$legacy_package" "$command"
-done
-
-: >"$stub_log"
-export OMARCHY_TEST_MISE_FAIL=true
-source "$ROOT/migrations/1791382812.sh" >/dev/null
-unset OMARCHY_TEST_MISE_FAIL
-[[ ! -s $stub_log ]] || fail "registry shorthand migration preserves wrappers unsupported by the installed mise"
-for mapping in "${wrapper_migrations[@]}"; do
-  IFS='|' read -r legacy_package shorthand_package command <<<"$mapping"
-  grep -Fq "$legacy_package" "$test_home/.local/bin/$command" ||
-    fail "registry shorthand migration leaves unsupported $command wrapper intact"
-done
-pass "registry shorthand migration requires shorthand support from the installed mise"
-
-source "$ROOT/migrations/1791382812.sh" >/dev/null
-for mapping in "${wrapper_migrations[@]}"; do
-  IFS='|' read -r legacy_package shorthand_package command <<<"$mapping"
-  expected="$shorthand_package $command"
-  grep -Fx "$expected" "$stub_log" >/dev/null ||
-    fail "registry shorthand migration rewrites $command with $shorthand_package"
-  rm -f "$test_home/.local/bin/$command"
-done
-[[ $(wc -l <"$stub_log") == ${#wrapper_migrations[@]} ]] || fail "registry shorthand migration rewrites each known wrapper once"
-pass "registry shorthand migration rewrites every known Omarchy wrapper"
-
-cat >"$test_home/.local/bin/hunk" <<'EOF'
-#!/bin/bash
-echo "user-owned hunk"
-EOF
-chmod +x "$test_home/.local/bin/hunk"
-: >"$stub_log"
-source "$ROOT/migrations/1791382812.sh" >/dev/null
-[[ ! -s $stub_log ]] || fail "registry shorthand migration leaves unrecognized wrappers alone"
-grep -Fq 'user-owned hunk' "$test_home/.local/bin/hunk" || fail "registry shorthand migration preserves a user-owned wrapper"
-rm -f "$test_home/.local/bin/hunk"
-pass "registry shorthand migration rewrites only recognized Omarchy wrappers"
-
 : >"$stub_log"
 source "$ROOT/install/user/mise.sh"
 grep -Fx "$cursor_agent_package" "$stub_log" >/dev/null && fail "user setup replaces an existing cursor-agent command"
 pass "user setup keeps an existing Cursor CLI install"
 grep -Fx "$muse_package muse" "$stub_log" >/dev/null && fail "user setup replaces an existing Muse command"
 
-for migration in 1788577553 1788724825 1788941927; do
-  : >"$stub_log"
-  : >"$mise_history"
-  source "$ROOT/migrations/$migration.sh" >/dev/null
-  [[ ! -s $stub_log ]] || fail "later migrations must not recreate legacy wrappers"
-  grep -Fx 'reshim --system' "$mise_history" >/dev/null || fail "later migrations refresh native lazy tools"
-  mkdir -p "$test_home/.local/state/omarchy"
-  touch "$test_home/.local/state/omarchy/preinstalls-removed"
-  : >"$mise_history"
-  source "$ROOT/migrations/$migration.sh" >/dev/null
-  [[ ! -s $mise_history ]] || fail "later tool migrations respect the preinstall opt-out"
-  rm "$test_home/.local/state/omarchy/preinstalls-removed"
-done
-pass "Cursor, Muse, and Basecamp migrations use native lazy tools and respect opt-out"
+: >"$stub_log"
+OMARCHY_TEST_MISSING_COMMAND=muse source "$ROOT/migrations/1788724825.sh" >/dev/null
+grep -Fx "$legacy_muse_package muse" "$stub_log" >/dev/null || fail "Muse migration creates its lazy stub"
+: >"$stub_log"
+source "$ROOT/migrations/1788724825.sh" >/dev/null
+[[ ! -s $stub_log ]] || fail "Muse migration replaces an existing command"
+mkdir -p "$test_home/.local/state/omarchy"
+touch "$test_home/.local/state/omarchy/preinstalls-removed"
+OMARCHY_TEST_MISSING_COMMAND=muse source "$ROOT/migrations/1788724825.sh" >/dev/null
+[[ ! -s $stub_log ]] || fail "Muse migration ignores the preinstall opt-out"
+rm "$test_home/.local/state/omarchy/preinstalls-removed"
+pass "Muse migration preserves existing installs and the preinstall opt-out"
+
 
 : >"$stub_log"
 source "$ROOT/migrations/1785617047.sh" >/dev/null
-grep -Fx "$omp_package omp" "$stub_log" >/dev/null || fail "Oh My Pi migration creates a working lazy stub"
+grep -Fx "$legacy_omp_package omp" "$stub_log" >/dev/null || fail "Oh My Pi migration creates a working lazy stub"
 
 : >"$stub_log"
 source "$ROOT/migrations/1787342993.sh" >/dev/null
-grep -Fx "$ori_package" "$stub_log" >/dev/null || fail "Ori migration creates a working lazy stub"
+grep -Fx "$legacy_ori_package ori" "$stub_log" >/dev/null || fail "Ori migration creates a working lazy stub"
+
+: >"$stub_log"
+export OMARCHY_TEST_MISSING_COMMAND=cursor-agent
+source "$ROOT/migrations/1788577553.sh" >/dev/null
+unset OMARCHY_TEST_MISSING_COMMAND
+grep -Fx "$cursor_agent_package" "$stub_log" >/dev/null || fail "Cursor CLI migration creates a working lazy stub"
+
+: >"$stub_log"
+source "$ROOT/migrations/1788577553.sh" >/dev/null
+[[ ! -s $stub_log ]] || fail "Cursor CLI migration reinstalls an existing cursor-agent command"
+pass "Cursor CLI migration preserves an existing Cursor CLI install"
 
 : >"$stub_log"
 source "$ROOT/migrations/1785846769.sh" >/dev/null
-grep -Fx "$omp_package omp" "$stub_log" >/dev/null || fail "agent migration repairs the Oh My Pi lazy stub"
-grep -Fx "$grok_package" "$stub_log" >/dev/null || fail "agent migration creates the Grok lazy stub"
+grep -Fx "$legacy_omp_package omp" "$stub_log" >/dev/null || fail "agent migration repairs the Oh My Pi lazy stub"
+grep -Fx "$legacy_grok_package grok" "$stub_log" >/dev/null || fail "agent migration creates the Grok lazy stub"
 grep -Fx "$crush_package" "$stub_log" >/dev/null || fail "agent migration creates the Crush lazy stub"
 
 : >"$stub_log"
@@ -360,7 +314,6 @@ source "$ROOT/migrations/1785617047.sh" >/dev/null
 source "$ROOT/migrations/1785846769.sh" >/dev/null
 source "$ROOT/migrations/1787342993.sh" >/dev/null
 OMARCHY_TEST_MISSING_COMMAND=cursor-agent source "$ROOT/migrations/1788577553.sh" >/dev/null
-source "$ROOT/migrations/1791382812.sh" >/dev/null
 [[ ! -s $stub_log ]] || fail "agent migrations respect the preinstall opt-out"
 [[ ! -e $test_home/.local/bin/omp ]] || fail "agent migration removes the obsolete Oh My Pi wrapper after opt-out"
 

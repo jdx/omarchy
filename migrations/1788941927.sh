@@ -1,5 +1,5 @@
-echo "Refresh the Basecamp CLI lazy tool"
+echo "Install basecamp (basecamp-cli) via mise wrapper"
 
 if [[ ! -f $HOME/.local/state/omarchy/preinstalls-removed ]]; then
-  mise reshim --system
+  omarchy-mise-install github:basecamp/basecamp-cli basecamp
 fi

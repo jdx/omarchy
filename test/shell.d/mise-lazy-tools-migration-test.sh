@@ -162,14 +162,3 @@ for failure in package reshim; do
 done
 rm -f "$test_home/.local/bin/codex"
 pass "lazy-tool migration keeps old wrappers until the replacement shims exist"
-
-# The shorthand migration runs first. It must leave a customized wrapper alone too,
-# or it would rewrite it into a template the lazy-tool migration then deletes.
-write_wrapper npm:playwright playwright
-printf '\n' >>"$test_home/.local/bin/playwright"
-cp "$test_home/.local/bin/playwright" "$test_tmp/expected-wrapper"
-PATH="$mock_bin:$ROOT/bin:$PATH" bash -euo pipefail "$ROOT/migrations/1791382812.sh" >/dev/null
-PATH="$mock_bin:$ROOT/bin:$PATH" bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null
-cmp -s "$test_home/.local/bin/playwright" "$test_tmp/expected-wrapper" ||
-  fail "shorthand and lazy-tool migrations preserve a wrapper with a trailing blank line"
-pass "shorthand and lazy-tool migrations preserve customized wrappers together"
