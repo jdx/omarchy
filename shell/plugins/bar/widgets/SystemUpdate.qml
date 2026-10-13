@@ -58,7 +58,6 @@ BarWidget {
     bar: root.bar
     text: "\uf021"
     slotSize: Style.bar.statusSlot
-    fontSize: Style.font.caption
     tooltipText: "Pending Omarchy Updates"
     onPressed: root.runUpdate()
   }

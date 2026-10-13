@@ -59,7 +59,7 @@ const bar = requireFromRoot('shell/plugins/bar/BarModel.js')
 const barSource = fs.readFileSync(root + '/shell/plugins/bar/Bar.qml', 'utf8')
 const shellSource = fs.readFileSync(root + '/shell/shell.qml', 'utf8')
 
-assert(/function toggleBarTransparency\(\): string \{[\s\S]*?shell\.bar\.toggleTransparency\(\)/.test(shellSource), 'shell exposes the bar transparency toggle over IPC')
+assert(/function toggleBarTransparency\(\): string \{[\s\S]*?shell\.bar\.cycleBackground\(\)/.test(shellSource), 'shell exposes the bar background cycle over IPC')
 
 // put tolerates a placement target the bar does not carry, so the IPC call
 // must reach the registry's put rather than route back through enable.
@@ -81,8 +81,8 @@ assert(
 )
 for (const edge of ['top', 'bottom', 'left', 'right']) {
   assert(
-    new RegExp(`${edge}: root\\.barHidden && root\\.position === "${edge}" \\? -root\\.barSize : 0`).test(barSource),
-    `a hidden bar parks past the ${edge} edge`
+    new RegExp(`${edge}: root\\.barHidden && root\\.position === "${edge}" \\? -barWindow\\.thickness : 0`).test(barSource),
+    `a hidden bar parks past the ${edge} edge by its whole thickness`
   )
 }
 
@@ -282,7 +282,7 @@ assert(
   'bar uses nearest insertion targeting for widget and free-space drops'
 )
 assert(
-  /component DragGhostPanel:[\s\S]*?readonly property var targetRect: root\.barDragTargetGeometry[\s\S]*?color: Color\.accent/.test(barSource),
+  /component DragGhostPanel:[\s\S]*?readonly property var targetRect: root\.barDragTargetGeometry[\s\S]*?color: Commons\.Color\.accent/.test(barSource),
   'bar draws the insertion marker above the bar in the drag overlay'
 )
 

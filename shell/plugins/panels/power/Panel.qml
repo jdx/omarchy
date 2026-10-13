@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.UPower
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
@@ -88,7 +89,7 @@ Panel {
   }
 
   readonly property color batteryFillColor: {
-    return root.bar ? root.bar.foreground : Color.foreground
+    return root.bar ? root.bar.foreground : Commons.Color.foreground
   }
 
   // Cute agent-flavored phrases shown in the hero status line, rotated on a
@@ -245,7 +246,7 @@ Panel {
   SequentialAnimation {
     id: phraseSwap
     PropertyAnimation {
-      target: heroStatus; property: "opacity"
+      target: panel.loadedContent ? panel.loadedContent.heroStatus : null; property: "opacity"
       to: 0.0; duration: Style.duration(180); easing.type: Easing.OutQuad
     }
     ScriptAction {
@@ -255,7 +256,7 @@ Panel {
       }
     }
     PropertyAnimation {
-      target: heroStatus; property: "opacity"
+      target: panel.loadedContent ? panel.loadedContent.heroStatus : null; property: "opacity"
       to: 1.0; duration: Style.duration(260); easing.type: Easing.InQuad
     }
   }
@@ -268,7 +269,7 @@ Panel {
     function onRotatingPhrasesChanged() {
       if (!root.rotatingPhrases) {
         phraseSwap.stop()
-        heroStatus.opacity = 1.0
+        if (panel.loadedContent) panel.loadedContent.heroStatus.opacity = 1.0
       }
     }
   }
@@ -277,9 +278,8 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.showPercentage && !vertical
-      ? Math.round(root.batteryFraction * 100) + "% " + root.batteryIcon()
-      : root.batteryIcon()
+    text: root.batteryIcon()
+    labelText: root.showPercentage && !vertical ? Math.round(root.batteryFraction * 100) + "%" : ""
     slotSize: Style.bar.iconSlot * (root.showPercentage && !vertical ? 2 : 1)
     tooltipText: ""
     onPressed: function(b) {
@@ -295,13 +295,15 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened && root.batteryPresent
-    focusTarget: keyCatcher
+    focusTarget: panel.loadedContent
     contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight)
+    contentHeight: panel.fittedContentHeight(panel.loadedContentHeight)
 
-    PanelKeyCatcher {
+    content: PanelKeyCatcher {
       id: keyCatcher
+      property alias heroStatus: heroStatus
       anchors.fill: parent
+      implicitHeight: column.implicitHeight
       onMoveRequested: function(dx, dy) {
         if (!root.cursorActive) { root.cursorActive = true; return }
         if (dx !== 0) root.selectProfileByDelta(dx)

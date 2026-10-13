@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 Panel {
@@ -11,6 +12,15 @@ Panel {
   moduleName: "omarchy.tailscale"
   ipcTarget: "omarchy.tailscale"
   manageIpc: false
+
+  // Items inside the panel's lazily built content, null until it first
+  // opens. Code inside the content reaches its own ids directly.
+  readonly property Item panelFlick: panel.loadedContent ? panel.loadedContent.panelFlick : null
+  readonly property Item hero: panel.loadedContent ? panel.loadedContent.hero : null
+  readonly property Item exitNodeColumn: panel.loadedContent ? panel.loadedContent.exitNodeColumn : null
+  readonly property Item mullvadSearch: panel.loadedContent ? panel.loadedContent.mullvadSearch : null
+  readonly property Item mullvadRegionColumn: panel.loadedContent ? panel.loadedContent.mullvadRegionColumn : null
+  readonly property Item peerColumn: panel.loadedContent ? panel.loadedContent.peerColumn : null
 
   property string focusSection: "header"
   property int headerIndex: 0
@@ -37,8 +47,8 @@ Panel {
   ]
   readonly property string heroPhraseText: activePhrases[phraseIndex % activePhrases.length]
 
-  readonly property color foreground: bar ? bar.foreground : Color.foreground
-  readonly property color urgent: bar ? bar.urgent : Color.urgent
+  readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
+  readonly property color urgent: bar ? bar.urgent : Commons.Color.urgent
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool showConnections: tailscale.accounts.length > 1 || tailscale.accountsAccessDenied
@@ -54,8 +64,8 @@ Panel {
   readonly property color iconColor: tailscale.active ? foreground : dim
   readonly property string toggleHint: tailscale.active ? "Turn Tailscale off" : (tailscale.needsLogin ? "Authorize this device" : "Turn Tailscale on")
   readonly property color barIconColor: tailscale.active ? barForeground : Qt.darker(barForeground, 1.55)
-  readonly property color hoverFill: bar ? Style.hoverFillFor(bar.foreground, Color.accent) : "transparent"
-  readonly property color selectedFill: bar ? Style.selectedFillFor(bar.foreground, Color.accent) : "transparent"
+  readonly property color hoverFill: bar ? Style.hoverFillFor(bar.foreground, Commons.Color.accent) : "transparent"
+  readonly property color selectedFill: bar ? Style.selectedFillFor(bar.foreground, Commons.Color.accent) : "transparent"
 
   function selectedPeer() {
     if (tailscale.peers.length === 0) return null
@@ -341,7 +351,7 @@ Panel {
     cursorActive = false
     if (panelFlick) panelFlick.contentY = 0
     tailscale.refresh()
-    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
   }
   onPeerIndexChanged: scrollCursorIntoView()
   onExitNodeIndexChanged: scrollCursorIntoView()
@@ -384,8 +394,9 @@ Panel {
     iconComponent: Component {
       Item {
         TailscaleIcon {
-          anchors.centerIn: parent
-          iconSize: Style.space(11)
+          x: (parent.width - width) / 2
+          y: (parent.height - height) / 2
+          iconSize: button.iconSize
           color: root.barIconColor
           badgeColor: root.urgent
           crossed: !tailscale.active && !tailscale.needsLogin
@@ -406,12 +417,19 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    focusTarget: keyCatcher
+    focusTarget: panel.loadedContent
     contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(560))
+    contentHeight: panel.fittedContentHeight(panel.loadedContentHeight, Style.space(560))
 
-    PanelKeyCatcher {
+    content: PanelKeyCatcher {
       id: keyCatcher
+      property alias panelFlick: panelFlick
+      property alias hero: hero
+      property alias exitNodeColumn: exitNodeColumn
+      property alias mullvadSearch: mullvadSearch
+      property alias mullvadRegionColumn: mullvadRegionColumn
+      property alias peerColumn: peerColumn
+      implicitHeight: column.implicitHeight
       anchors.fill: parent
       blocked: root.copyMenuOpen
       onMoveRequested: function(dx, dy) {
@@ -1031,11 +1049,11 @@ Panel {
             peerRow.clampCopyIndex()
             Qt.callLater(function() { copyPopupContent.forceActiveFocus() })
           } else if (root.opened) {
-            Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+            Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
           }
         }
         background: BorderSurface {
-          color: Color.background
+          color: Commons.Color.background
           borderSpec: Border.flat(root.dim, 1)
           radius: Style.cornerRadius
         }

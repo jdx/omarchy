@@ -698,9 +698,9 @@ QtObject {
     // Third-party plugins stay at the top level of ~/.config/omarchy/plugins.
     var script = ""
       + "emit_manifest() { local kind=\"$1\"; local manifest=\"$2\"; local sub; "
-      + "  if [[ ${manifest##*/} == \"manifest.json\" ]]; then sub=\"${manifest%/manifest.json}\"; else sub=\"$(dirname -- \"$manifest\")\"; fi; "
+      + "  if [[ ${manifest##*/} == \"manifest.json\" ]]; then sub=\"${manifest%/manifest.json}\"; else sub=\"${manifest%/*}\"; fi; "
       + "  printf '===%s::%s===\\n' \"$kind\" \"$sub\"; "
-      + "  cat \"$manifest\"; "
+      + "  printf '%s\\n' \"$(<\"$manifest\")\"; "
       + "  printf '\\n=== EOM ===\\n'; "
       + "}; "
       + "scan_firstparty() { local dir=\"$1\"; "

@@ -127,12 +127,12 @@ Item {
     return [
       'dirs="$HOME/.icons $HOME/.local/share/icons";',
       'IFS=":"; for d in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do dirs="$dirs $d/icons"; done; unset IFS;',
-      'for ext in svg png; do',
+      '{',
       '  for base in $dirs; do',
-      '    [[ -d $base ]] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) -name "*.$ext" 2>/dev/null;',
+      '    [[ -d $base ]] && find "$base" \\( -path "*/apps/*" -o -path "*/devices/*" \\) \\( -name "*.svg" -o -name "*.png" \\) 2>/dev/null;',
       '  done;',
-      '  find /usr/share/pixmaps -maxdepth 1 -name "*.$ext" 2>/dev/null;',
-      'done'
+      '  find /usr/share/pixmaps -maxdepth 1 \\( -name "*.svg" -o -name "*.png" \\) 2>/dev/null;',
+      '} | awk \'/\\.svg$/ { print; next } { png[++n] = $0 } END { for (i = 1; i <= n; i++) print png[i] }\''
     ].join(' ')
   }
 

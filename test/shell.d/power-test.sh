@@ -44,7 +44,8 @@ assertEqual(
 
 assert(/if \(b === Qt\.RightButton\) root\.togglePercentage\(\)/.test(panelSource), 'power right click toggles the bar percentage')
 assert(/Object\.assign\([^\n]+showPercentage: !root\.showPercentage[^\n]+\)[\s\S]*updateEntryInline/.test(panelSource), 'power persists the bar percentage setting')
-assert(/Math\.round\(root\.batteryFraction \* 100\) \+ "% " \+ root\.batteryIcon\(\)/.test(panelSource), 'power places the percentage before the battery icon')
+// BarIconButton lays its label out before the icon; bar-icon-geometry-test.sh checks the order.
+assert(/text: root\.batteryIcon\(\)\n\s*labelText: root\.showPercentage && !vertical \? Math\.round\(root\.batteryFraction \* 100\) \+ "%" : ""/.test(panelSource), 'power shows the percentage as the bar button label beside the battery icon')
 assert(/openPanelIndicatorWidth:.*showPercentage.*button\.glyphPaintedWidth : 0/.test(panelSource), 'power spans the open-panel mark across the painted percentage block')
 assert(/IpcHandler[\s\S]*?function togglePercentage\(\) \{ root\.togglePercentage\(\) \}/.test(panelSource), 'power exposes togglePercentage over IPC')
 assert(/manageIpc: false/.test(panelSource), 'power owns its IPC handler so it can extend the target methods')

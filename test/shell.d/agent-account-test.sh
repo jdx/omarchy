@@ -95,7 +95,10 @@ export PATH="$mock_bin:$ROOT/bin:$PATH"
 export OMARCHY_PATH="$ROOT"
 export OMARCHY_TEST_NOTIFICATIONS="$notifications"
 export OMARCHY_TEST_BROWSER_LOG="$test_tmp/browser"
+# A session started by an account launch pins its home through these, and
+# a run from inside one (an agent working on Omarchy) must not inherit it.
 unset CLAUDE_CONFIG_DIR CODEX_HOME GROK_HOME BROWSER
+unset OMARCHY_AGENT_CLAUDE_HOME OMARCHY_AGENT_CODEX_HOME OMARCHY_AGENT_GROK_HOME
 
 accounts="$XDG_STATE_HOME/omarchy/agents/accounts"
 

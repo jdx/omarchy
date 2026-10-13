@@ -20,17 +20,15 @@ if gum confirm "Are you sure you want to restore all preinstalled web apps, TUI 
     aether \
     cliamp \
     libreoffice-fresh \
-    xournalpp \
     pinta \
     obsidian \
-    obs-studio \
-    kdenlive \
     moonlight-qt \
     omacut \
     monologue \
     omacalc \
     omawrite \
-    hype; then
+    hype \
+    signed; then
     echo -e "\nPreinstalls are still marked as removed. Fix the errors above and try again."
     exit 1
   fi

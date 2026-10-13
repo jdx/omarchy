@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 import "GlobeModel.js" as Solar
@@ -15,6 +16,17 @@ Panel {
   moduleName: "omarchy.elsewhen"
   ipcTarget: "omarchy.elsewhen"
   manageIpc: false
+
+  // Items inside the panel's lazily built content, null until it first
+  // opens. Code inside the content reaches its own ids directly.
+  readonly property Item scroller: panel.loadedContent ? panel.loadedContent.scroller : null
+  readonly property Item scrollContent: panel.loadedContent ? panel.loadedContent.scrollContent : null
+  readonly property Item hero: panel.loadedContent ? panel.loadedContent.hero : null
+  readonly property Item stage: panel.loadedContent ? panel.loadedContent.stage : null
+  readonly property Item listWrap: panel.loadedContent ? panel.loadedContent.listWrap : null
+  readonly property Item cityRows: panel.loadedContent ? panel.loadedContent.cityRows : null
+  readonly property Item citySearch: panel.loadedContent ? panel.loadedContent.citySearch : null
+  readonly property Item globeLoader: panel.loadedContent ? panel.loadedContent.globeLoader : null
 
 
   // ---- settings
@@ -62,13 +74,14 @@ Panel {
   property bool searchProbeQueued: false
   property bool factsQueued: false
 
-  readonly property bool adding: citySearch.active
-  onAddingChanged: if (!adding) scroller.scrollToTop()
+  readonly property bool adding: citySearch ? citySearch.active : false
+  onAddingChanged: if (!adding && scroller) scroller.scrollToTop()
   readonly property var zoneOptions: Model.zoneOptions(zoneCatalogText, zones)
   // The globe's jump box may go to a city that is already tracked.
   readonly property var allZoneOptions: Model.zoneOptions(zoneCatalogText, [])
   readonly property var searchZoneIds: {
     var out = []
+    if (!citySearch) return out
     for (var i = 0; i < citySearch.matches.length; i++) {
       var id = citySearch.matches[i].value
       if (out.indexOf(id) < 0) out.push(id)
@@ -80,7 +93,7 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  readonly property color foreground: bar ? bar.foreground : Color.foreground
+  readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property color fainter: Qt.darker(foreground, 2.1)
   // A literal gold: several themes' "yellow" is not yellow.
@@ -95,7 +108,7 @@ Panel {
   readonly property real bigGlobeOpacity: Util.clamp(zoom / 0.12, 0, 1)
   readonly property real globeStageHeight: Style.space(378)
   // Far enough for the top row to fall past the whole list.
-  readonly property real knockFall: listWrap.implicitHeight + Style.space(220)
+  readonly property real knockFall: (listWrap ? listWrap.implicitHeight : 0) + Style.space(220)
 
   // Shift-click the globe to run the transition at a third of the speed.
   readonly property int slowMotionFactor: 3
@@ -108,12 +121,12 @@ Panel {
     zoomDuration = (on ? 800 : 500) * (slow === true ? slowMotionFactor : 1)
     zoomEasing = on ? Easing.OutQuart : Easing.InOutCubic
     globeMode = on
-    if (on && globeLoader.item) showFocusOnGlobe()
+    if (on && globeLoader && globeLoader.item) showFocusOnGlobe()
   }
 
   // The globe opens on the list's focus, when its coordinates are known.
   function showFocusOnGlobe() {
-    var g = globeLoader.item
+    var g = globeLoader ? globeLoader.item : null
     if (!g) return
     if (focusIndex >= 0 && focusKnown) g.goTo(focusZone.label, focusZone.id)
     else g.showHome()
@@ -134,13 +147,14 @@ Panel {
   // The little globe's center in stage coordinates, where the big one grows
   // from. The unused sum makes it recompute when the layout above moves.
   readonly property var heroCenter: {
+    if (!hero || !stage) return null
     var _ = hero.icon.width + hero.icon.height + stage.y + stage.width
     var pt = hero.icon.mapToItem(stage, hero.icon.width / 2, hero.icon.height / 2)
     return (pt && pt.x !== undefined) ? pt : null
   }
-  readonly property real heroCenterX: heroCenter ? heroCenter.x : stage.width / 2
+  readonly property real heroCenterX: heroCenter ? heroCenter.x : (stage ? stage.width / 2 : 0)
   readonly property real heroCenterY: heroCenter ? heroCenter.y : 0
-  readonly property real heroDiscRadius: Math.max(1, hero.icon.width / 2 - 1)
+  readonly property real heroDiscRadius: hero ? Math.max(1, hero.icon.width / 2 - 1) : 1
 
   // ---- drag to reorder
   // Rows move by transform while dragging; the order is committed on drop.
@@ -274,9 +288,9 @@ Panel {
 
   function focusOn(index) {
     addSelected = false
-    var from = hero.spin
+    var from = hero ? hero.spin : 0
     focusKey = index >= 0 && index < zones.length ? Model.factsKey(zones[index]) : ""
-    if (focusKnown) hero.turn(from, focusLon)
+    if (focusKnown && hero) hero.turn(from, focusLon)
   }
 
   // Past the last city, the list's cursor rests on "Add a city"; the globe stays put.
@@ -294,7 +308,7 @@ Panel {
     }
     focusOn(next)
     if (globeMode) showFocusOnGlobe()
-    else scrollToItem(next >= 0 ? cityRows.itemAt(next) : null)
+    else scrollToItem(next >= 0 && cityRows ? cityRows.itemAt(next) : null)
   }
 
   // The picked city goes, as with its × button, and the cursor lands on the city
@@ -307,8 +321,9 @@ Panel {
   }
 
   function scrollToItem(item) {
+    if (!scroller) return
     if (!item) { scroller.scrollToTop(); return }
-    var top = item.mapToItem(content, 0, 0).y
+    var top = item.mapToItem(scrollContent, 0, 0).y
     if (top < scroller.contentY) scroller.scrollTo(top)
     else if (top + item.height > scroller.contentY + scroller.height)
       scroller.scrollTo(Math.min(scroller.maxScroll, top + item.height - scroller.height))
@@ -403,7 +418,7 @@ Panel {
   function removeCity(id) { setZones(Model.removeZone(zones, id)) }
   function removeCityAt(index) { setZones(Model.removeZoneAt(zones, index)) }
 
-  function startAdding() { citySearch.start() }
+  function startAdding() { if (citySearch) citySearch.start() }
 
   function addSessionCity(label, id) {
     for (var i = 0; i < sessionCities.length; i++)
@@ -509,7 +524,7 @@ Panel {
     if (lon === null) { spinPending = true; spinFallback.restart(); return }
     spinPending = false
     spinFallback.stop()
-    hero.spinOpening(lon)
+    if (hero) hero.spinOpening(lon)
   }
 
   onFactsChanged: if (spinPending) startOpeningSpin()
@@ -518,17 +533,20 @@ Panel {
   Timer {
     id: spinFallback
     interval: 1500
-    onTriggered: if (root.spinPending) { root.spinPending = false; hero.spinOpening(null) }
+    onTriggered: if (root.spinPending) { root.spinPending = false; if (root.hero) root.hero.spinOpening(null) }
   }
 
   onOpenedChanged: {
     if (opened) {
+      // The opening spin below drives the hero, so build the content first.
+      panel.ensureContent()
       focusKey = ""
       addSelected = false
       tick(); refresh(); refreshFacts(); loadCatalog()
       startOpeningSpin()
     } else {
-      citySearch.stop(); setGlobeMode(false, false); scrubMinutes = 0
+      if (citySearch) citySearch.stop()
+      setGlobeMode(false, false); scrubMinutes = 0
       spinPending = false; spinFallback.stop()
     }
   }
@@ -727,12 +745,21 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    focusTarget: keyCatcher
+    focusTarget: panel.loadedContent
     contentWidth: panel.fittedContentWidth(Style.space(340))
-    contentHeight: panel.fittedContentHeight(content.implicitHeight, Style.space(680))
+    contentHeight: panel.fittedContentHeight(panel.loadedContentHeight, Style.space(680))
 
-    PanelKeyCatcher {
+    content: PanelKeyCatcher {
       id: keyCatcher
+      property alias scroller: scroller
+      property alias scrollContent: scrollContent
+      property alias hero: hero
+      property alias stage: stage
+      property alias listWrap: listWrap
+      property alias cityRows: cityRows
+      property alias citySearch: citySearch
+      property alias globeLoader: globeLoader
+      implicitHeight: scrollContent.implicitHeight
       anchors.fill: parent
       blocked: root.adding
       // Escape unwinds one layer: search (its own field), a shifted time, globe, then panel.
@@ -781,7 +808,7 @@ Panel {
         clip: true
         interactive: false
         contentWidth: width
-        contentHeight: content.implicitHeight
+        contentHeight: scrollContent.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
 
         readonly property real maxScroll: Math.max(0, contentHeight - height)
@@ -821,7 +848,7 @@ Panel {
         }
 
         Column {
-          id: content
+          id: scrollContent
           width: scroller.width - Style.space(12)
           spacing: Style.spacing.panelGap
 
@@ -830,7 +857,7 @@ Panel {
             width: parent.width
             caption: root.hereLine
             // Accent while scrubbed, so a shifted time is never taken for now.
-            captionColor: root.scrubMinutes !== 0 ? Color.accent : root.dim
+            captionColor: root.scrubMinutes !== 0 ? Commons.Color.accent : root.dim
             captionClickable: root.focusIndex >= 0
             foreground: root.foreground
             dim: root.dim
@@ -898,7 +925,7 @@ Panel {
                   fontFamily: root.fontFamily
                   onActiveChanged: if (active) root.loadCatalog()
                   onPicked: function(label, id) { root.addCity(id, label) }
-                  onDismissed: Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+                  onDismissed: Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() })
 
                   // Knocked aside last, after every row.
                   transform: Translate {
@@ -968,7 +995,7 @@ Panel {
                 item.offsetModeToggleRequested.connect(function() { root.toggleOffsetMode() })
                 item.jumpRequested.connect(function(label, zone) { root.addSessionCity(label, zone) })
                 item.exitRequested.connect(function() { root.setGlobeMode(false, false) })
-                item.jumpDismissed.connect(function() { Qt.callLater(function() { keyCatcher.forceActiveFocus() }) })
+                item.jumpDismissed.connect(function() { Qt.callLater(function() { if (panel.loadedContent) panel.loadedContent.forceActiveFocus() }) })
                 item.citySelected.connect(function(label, zone) { root.focusFromGlobe(label, zone) })
                 item.cityTapped.connect(function(label, zone) { root.claimHome(label, zone) })
                 // A cold start can finish loading after the mode switched on.

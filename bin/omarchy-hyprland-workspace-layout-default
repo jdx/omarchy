@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# omarchy:summary=Show or set the layout of workspaces without one of their own: dwindle, scrolling, or floating
+# omarchy:args=[dwindle|scrolling|floating]
+# omarchy:examples=omarchy hyprland workspace layout default | omarchy hyprland workspace layout default scrolling
+
+MODES_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/workspace-layouts"
+DEFAULT_FILE="$MODES_DIR/default.lua"
+
+# Without a saved default, Hyprland's own layout is the default, which the
+# user's looknfeel may have set.
+if (( $# == 0 )); then
+  MODE=$(sed -n 's/.*default = "\([a-z]*\)".*/\1/p' "$DEFAULT_FILE" 2>/dev/null)
+  [[ -n $MODE ]] || MODE=$(hyprctl getoption general.layout -j 2>/dev/null | jq -r '.str // empty')
+  echo "${MODE:-dwindle}"
+  exit 0
+fi
+
+case $1 in
+  dwindle) LABEL=tiling ;;
+  scrolling | floating) LABEL=$1 ;;
+  *)
+    echo "Usage: omarchy-hyprland-workspace-layout-default [dwindle|scrolling|floating]" >&2
+    exit 1
+    ;;
+esac
+
+# Saved even for dwindle, so the choice also wins over a layout set in the
+# user's own looknfeel. Workspaces given a layout with Super + L keep theirs.
+mkdir -p "$MODES_DIR"
+printf 'o.workspace_mode({ default = "%s" })\n' "$1" >"$DEFAULT_FILE"
+
+hyprctl reload >/dev/null
+omarchy-shell -q omarchy.workspaces refresh
+omarchy-notification-send -g 󱂬 "New workspaces use the $LABEL layout"

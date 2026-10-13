@@ -6,6 +6,7 @@ import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 import qs.Ui
 import qs.Commons
+import qs.Commons as Commons
 import "Model.js" as Model
 
 Panel {
@@ -104,10 +105,10 @@ Panel {
   readonly property string toggleHint: root.adapter && root.adapter.enabled ? "Turn Bluetooth off" : "Turn Bluetooth on"
 
   readonly property color hoverFill: bar
-    ? Style.hoverFillFor(bar.foreground, Color.accent)
+    ? Style.hoverFillFor(bar.foreground, Commons.Color.accent)
     : "transparent"
   readonly property color selectedFill: bar
-    ? Style.selectedFillFor(bar.foreground, Color.accent)
+    ? Style.selectedFillFor(bar.foreground, Commons.Color.accent)
     : "transparent"
 
   function sectionCount(section) {
@@ -602,14 +603,14 @@ Panel {
   SequentialAnimation {
     id: phraseSwap
     PropertyAnimation {
-      target: heroStatus; property: "opacity"
+      target: panel.loadedContent ? panel.loadedContent.heroStatus : null; property: "opacity"
       to: 0.0; duration: Style.duration(180); easing.type: Easing.OutQuad
     }
     ScriptAction {
       script: root.phraseIndex = (root.phraseIndex + 1) % root.activePhrases.length
     }
     PropertyAnimation {
-      target: heroStatus; property: "opacity"
+      target: panel.loadedContent ? panel.loadedContent.heroStatus : null; property: "opacity"
       to: 1.0; duration: Style.duration(260); easing.type: Easing.InQuad
     }
   }
@@ -619,7 +620,7 @@ Panel {
     function onRotatingPhrasesChanged() {
       if (!root.rotatingPhrases) {
         phraseSwap.stop()
-        heroStatus.opacity = 1.0
+        if (panel.loadedContent) panel.loadedContent.heroStatus.opacity = 1.0
       }
     }
   }
@@ -665,12 +666,14 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    focusTarget: keyCatcher
+    focusTarget: panel.loadedContent
     contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight)
+    contentHeight: panel.fittedContentHeight(panel.loadedContentHeight)
 
-    PanelKeyCatcher {
+    content: PanelKeyCatcher {
       id: keyCatcher
+      property alias heroStatus: heroStatus
+      implicitHeight: column.implicitHeight
       anchors.fill: parent
       onMoveRequested: function(dx, dy) {
         if (!root.cursorActive) { root.cursorActive = true; return }

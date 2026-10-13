@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Ui
 import qs.Commons
+import qs.Commons as Commons
 import "Model.js" as Model
 
 Panel {
@@ -187,6 +188,7 @@ Panel {
   // taller than its allotted height (lots of displays). Mirrors audio's
   // ensureCursorVisible helper.
   function ensureCursorVisible(item) {
+    var scrollArea = panel.loadedContent ? panel.loadedContent.scrollArea : null
     if (!item || !scrollArea) return
     var flick = scrollArea.contentItem
     if (!flick || flick.contentY === undefined) return
@@ -493,12 +495,14 @@ Panel {
     owner: root
     bar: root.bar
     open: root.opened
-    focusTarget: keyCatcher
+    focusTarget: panel.loadedContent
     contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(panelColumn.implicitHeight, Style.space(560))
+    contentHeight: panel.fittedContentHeight(panel.loadedContentHeight, Style.space(560))
 
-    PanelKeyCatcher {
+    content: PanelKeyCatcher {
       id: keyCatcher
+      property alias scrollArea: scrollArea
+      implicitHeight: panelColumn.implicitHeight
       anchors.fill: parent
       onMoveRequested: function(dx, dy) {
         if (!root.cursorActive) { root.cursorActive = true; return }
@@ -873,8 +877,8 @@ Panel {
     onHasCursorChanged: if (hasCursor) root.ensureCursorVisible(monitorRow)
     current: isFocused
     foreground: root.bar.foreground
-    fill: Style.hoverFillFor(root.bar.foreground, Color.accent)
-    currentFill: Style.selectedFillFor(root.bar.foreground, Color.accent)
+    fill: Style.hoverFillFor(root.bar.foreground, Commons.Color.accent)
+    currentFill: Style.selectedFillFor(root.bar.foreground, Commons.Color.accent)
     implicitHeight: monitorInner.implicitHeight + Style.spacing.xl
     opacity: canToggle ? 1.0 : 0.45
 

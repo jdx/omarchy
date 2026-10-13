@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# omarchy:summary=Apply current Omarchy theme colors to running Foot terminals
+# omarchy:summary=Apply current Omarchy theme colors and background alpha to running Foot terminals
 # omarchy:hidden=true
 
 colors_toml=$HOME/.local/state/omarchy/current/theme/colors.toml
+foot_ini=$HOME/.local/state/omarchy/current/theme/foot.ini
 
 if [[ ! -f $colors_toml ]] || ! pgrep -x foot >/dev/null; then
   exit 0
@@ -11,6 +12,16 @@ fi
 
 foot_osc=$(omarchy-theme-osc "$colors_toml")
 [[ -n $foot_osc ]] || exit 0
+
+# foot takes a background alpha as an urxvt-style [percent] prefix, so a theme
+# going see-through or back, as with Glassy windows, reaches running terminals.
+# The last alpha in the theme's foot.ini wins, as it does when foot reads it.
+alpha=$(sed -n 's/^[[:space:]]*alpha[[:space:]]*=[[:space:]]*\([0-9.]*\).*/\1/p' "$foot_ini" 2>/dev/null | tail -n 1)
+background=$(omarchy-theme-color --file "$colors_toml" background 2>/dev/null)
+if [[ -n $background ]]; then
+  percent=$(awk -v alpha="${alpha:-1}" 'BEGIN { printf "%d", alpha * 100 + 0.5 }')
+  foot_osc+=$(printf '\033]11;[%d]%s\007' "$percent" "$background")
+fi
 
 for foot_pid in $(pgrep -x foot); do
   for child_pid in $(pgrep -P "$foot_pid"); do

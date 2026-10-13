@@ -7,10 +7,56 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 TMPDIR=""
 QS_PID=""
 
+# Quickshell leaves some of its children running when it is stopped, among them
+# the inotifywait watching the plugin directory, which then holds whatever it
+# inherited open (a flock around the run, say) indefinitely. Once the shell is
+# stopped, stop whatever still runs with this test's scratch OMARCHY_PATH: every
+# child inherits it, and it finds the ones a shell that already died left
+# reparented. The environment is read afresh before every signal, so a pid
+# that has since been reused by something else is never sent one.
+leftover_pids() {
+  local environ pid
+
+  [[ -n ${test_root:-} ]] || return 0
+  while IFS= read -r environ; do
+    pid=${environ#/proc/}
+    echo "${pid%/environ}"
+  done < <(grep -lzxF -- "OMARCHY_PATH=$test_root" /proc/[0-9]*/environ 2>/dev/null || true)
+}
+
+signal_leftovers() {
+  local leftovers=()
+
+  mapfile -t leftovers < <(leftover_pids)
+  (( ${#leftovers[@]} > 0 )) || return 1
+  kill "$1" "${leftovers[@]}" 2>/dev/null || true
+}
+
+# TERM, a few seconds' grace, then KILL, so nothing that ignores TERM can hang
+# the run. Bash can reap the shell, and free its pid, before it is waited for,
+# so the shell gets KILL only while it was still seen running.
 cleanup() {
+  local alive
+
   if [[ -n $QS_PID ]] && kill -0 "$QS_PID" 2>/dev/null; then
     kill "$QS_PID" 2>/dev/null || true
+    alive=1
+    for _ in {1..30}; do
+      if ! kill -0 "$QS_PID" 2>/dev/null; then
+        alive=0
+        break
+      fi
+      sleep 0.1
+    done
+    (( alive == 0 )) || kill -KILL "$QS_PID" 2>/dev/null || true
     wait "$QS_PID" 2>/dev/null || true
+  fi
+  if signal_leftovers -TERM; then
+    for _ in {1..30}; do
+      [[ -n $(leftover_pids) ]] || break
+      sleep 0.1
+    done
+    signal_leftovers -KILL || true
   fi
   [[ -n ${test_root:-} ]] && rm -f "$(shell_ipc_socket "$test_root")"
   [[ -n $TMPDIR && -d $TMPDIR ]] && rm -rf "$TMPDIR"

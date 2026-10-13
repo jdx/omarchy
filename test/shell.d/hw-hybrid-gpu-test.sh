@@ -28,18 +28,35 @@ esac
 printf '%s\n' "${SUPPORTED_MODES:-Integrated Hybrid}"
 STUB
 
+# lspci reads config space and wakes a runtime-suspended dGPU, so the count
+# must come from sysfs alone: a stub that fails loudly proves it is never run.
 cat >"$fake_bin/lspci" <<'STUB'
 #!/bin/bash
-
-for _ in $(seq "${GPU_COUNT:-1}"); do
-  echo "0000:00:02.0 VGA compatible controller: Stub GPU"
-done
+echo "lspci ran" >>"$LSPCI_LOG"
+exit 1
 STUB
 
 chmod +x "$fake_bin"/*
 
+export LSPCI_LOG="$test_tmp/lspci.log"
+
+# A PCI bus with GPU_COUNT display controllers (VGA, 3D, and plain Display
+# classes in turn) beside an audio device and a bridge that are not GPUs.
+pci_devices() {
+  local dir="$test_tmp/pci-${GPU_COUNT:-1}" classes=(0x030000 0x030200 0x038000) i
+  rm -rf "$dir"
+  for ((i = 0; i < ${GPU_COUNT:-1}; i++)); do
+    mkdir -p "$dir/0000:0$i:00.0"
+    echo "${classes[i % 3]}" >"$dir/0000:0$i:00.0/class"
+  done
+  mkdir -p "$dir/0000:10:00.1" "$dir/0000:11:00.0"
+  echo 0x040300 >"$dir/0000:10:00.1/class"
+  echo 0x060400 >"$dir/0000:11:00.0/class"
+  echo "$dir"
+}
+
 hybrid_gpu() {
-  PATH="$fake_bin:$PATH" timeout --kill-after=1s 10s bash "$ROOT/bin/omarchy-hw-hybrid-gpu"
+  OMARCHY_PCI_DEVICES_PATH="$(pci_devices)" PATH="$fake_bin:$PATH" timeout --kill-after=1s 10s bash "$ROOT/bin/omarchy-hw-hybrid-gpu"
 }
 
 hybrid_gpu ||
@@ -89,3 +106,17 @@ chmod +x "$fake_bin/omarchy-cmd-present"
 GPU_COUNT=2 hybrid_gpu ||
   fail "hybrid GPU detection counts GPUs without supergfxctl"
 pass "hybrid GPU detection counts GPUs without supergfxctl"
+
+GPU_COUNT=1 hybrid_gpu
+status=$?
+((status == 1)) ||
+  fail "hybrid GPU detection sees one GPU beside other PCI devices as non-hybrid" "exit status: $status"
+pass "hybrid GPU detection sees one GPU beside other PCI devices as non-hybrid"
+
+GPU_COUNT=3 hybrid_gpu ||
+  fail "hybrid GPU detection counts 3D and Display controllers as GPUs"
+pass "hybrid GPU detection counts 3D and Display controllers as GPUs"
+
+[[ ! -e $LSPCI_LOG ]] ||
+  fail "hybrid GPU detection never runs lspci, which wakes a suspended dGPU"
+pass "hybrid GPU detection never runs lspci, which wakes a suspended dGPU"
