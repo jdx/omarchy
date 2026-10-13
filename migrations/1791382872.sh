@@ -33,10 +33,13 @@ legacy_wrapper() {
   return 1
 }
 
+wrapper_packages=()
+
 remove_legacy_wrapper() {
   local command=$1
   shift
 
+  wrapper_packages+=("$@")
   for package in "$@"; do
     if legacy_wrapper "$command" "$package"; then
       rm -f "$HOME/.local/bin/$command"
@@ -80,3 +83,12 @@ remove_legacy_wrapper cf npm:cf
 remove_legacy_wrapper cursor-agent cursor-agent
 remove_legacy_wrapper basecamp basecamp github:basecamp/basecamp-cli
 remove_legacy_wrapper muse muse 'http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]'
+
+# Every wrapper ran `mise use -g`, which left `tool = "latest"` in the user's
+# config. That entry outranks Omarchy's declaration, so the tool would never be
+# lazy or update itself. Drop only exact latest requests, since a pinned version
+# is the user's choice, and keep the installs for the declarations to reuse.
+# After an opt-out those entries are what still provides the tools, so they stay.
+if [[ ! -f $HOME/.local/state/omarchy/preinstalls-removed ]]; then
+  mise unuse -g --no-prune "${wrapper_packages[@]/%/@latest}"
+fi

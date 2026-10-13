@@ -80,6 +80,15 @@ grep -Fx 'reshim --system' "$mise_log" >/dev/null || fail "lazy-tool migration r
 [[ ! -e $miserc ]] || fail "lazy-tool migration keeps the default tools enabled"
 pass "lazy-tool migration replaces recognized wrappers with native lazy declarations"
 
+# The requests the wrappers wrote would outrank the declarations, under the
+# shorthand and under every older backend name alike.
+unuse=$(grep '^unuse ' "$mise_log") || fail "lazy-tool migration drops the wrappers' latest requests"
+[[ $unuse == "unuse -g --no-prune "* ]] || fail "lazy-tool migration keeps installs when it drops requests" "$unuse"
+for request in codex@latest claude@latest muse@latest npm:cf@latest aqua:modem-dev/hunk@latest github:can1357/oh-my-pi@latest; do
+  [[ " $unuse " == *" $request "* ]] || fail "lazy-tool migration drops the wrappers' latest requests" "$request"
+done
+pass "lazy-tool migration drops the wrappers' latest requests"
+
 : >"$mise_log"
 bash -euo pipefail "$ROOT/migrations/1791382872.sh" >/dev/null
 grep -Fx 'echo user-owned' "$test_home/.local/bin/hunk" >/dev/null || fail "lazy-tool migration remains safe on a second run"
@@ -95,6 +104,7 @@ grep -qxF "ignored_config_paths = [\"$mise_config\"]" "$miserc" ||
   fail "lazy-tool migration keeps Omarchy's declarations out after opt-out"
 [[ ! -e $test_home/.local/bin/ghui ]] || fail "lazy-tool migration removes an obsolete wrapper after opt-out"
 grep -Fx 'reshim' "$mise_log" >/dev/null || fail "lazy-tool migration removes obsolete bootstrap shims after opt-out"
+grep -q '^unuse ' "$mise_log" && fail "lazy-tool migration keeps the requests that still provide tools after opt-out"
 pass "lazy-tool migration preserves the preinstall opt-out"
 
 # A user-owned symlink or command at a retired wrapper path must survive.
