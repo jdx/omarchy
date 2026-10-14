@@ -34,8 +34,8 @@ case "$1 $2" in
     ;;
   "dot history"|"dot --local")
     case "$*" in
-      *--local*--path*monitors.lua*) printf '%s\n' '[{"id":7,"created_at":"2026-10-10T10:35:50Z","description":"local monitor edit"}]' ;;
       *--local*--path*) printf '%s\n' '[]' ;;
+      *--path*monitors.lua*) printf '%s\n' '[{"id":7,"created_at":"2026-10-10T10:35:50Z","description":"local monitor edit"}]' ;;
       *--path*) printf '%s\n' '[{"id":42,"created_at":"2026-10-09T10:35:50Z","description":"omarchy refresh hyprland"},{"id":41,"created_at":"2026-10-08T09:00:00Z","description":"edit"}]' ;;
       *--local*) printf '%s\n' '[{"id":7,"changes":{"modified":["~/.config/hypr/monitors.lua"]}}]' ;;
       *) printf '%s\n' '[{"id":42,"changes":{"modified":["~/.config/hypr/bindings.lua"],"added":["~/.config/starship.toml"]}},{"id":41,"changes":{"deleted":["~/.config/hypr/bindings.lua"]}}]' ;;
@@ -206,13 +206,12 @@ run omarchy-dots-restore >/dev/null
 grep -qx 'dot history --json --limit 0' "$calls" || fail "restore lists files with saved versions"
 grep -qx 'dot --local history --json --limit 0' "$calls" || fail "restore also lists local-only files"
 grep -qx "dot history --json --limit 0 --path $home/.config/hypr/bindings.lua" "$calls" || fail "restore lists the picked file's versions"
-grep -qx "dot --local history --json --limit 0 --path $home/.config/hypr/bindings.lua" "$calls" || fail "restore also checks the picked file's local history"
 grep -qx "dot rollback $home/.config/hypr/bindings.lua --to 42" "$calls" || fail "restore rolls the picked file back to the picked version"
 pass "restore picks a file and a version, then rolls back"
 
 : >"$calls"
 run omarchy-dots-restore "$home/.config/hypr/monitors.lua" >/dev/null
-grep -qx "dot --local rollback $home/.config/hypr/monitors.lua --to 7" "$calls" || fail "restore rolls a local-only version back through local history"
+grep -qx "dot rollback $home/.config/hypr/monitors.lua --to 7" "$calls" || fail "restore lets mise route a local-only version back through local history"
 pass "restore picks and rolls back local-only history"
 
 : >"$calls"

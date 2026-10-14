@@ -41,25 +41,15 @@ if [[ -z $file ]]; then
 fi
 file="${file/#\~/$HOME}"
 
-scope="shared"
 if [[ -z $at ]]; then
-  versions=$({
-    mise dot history --json --limit 0 --path "$file" |
-      jq -r '.[] | "\(.id)\t\(.created_at[0:16] | sub("T"; " "))\t\(.description)\tshared"'
-    mise dot --local history --json --limit 0 --path "$file" |
-      jq -r '.[] | "\(.id)\t\(.created_at[0:16] | sub("T"; " "))\t\(.description)\tlocal"'
-  } | sort -r -k2,2)
+  versions=$(mise dot history --json --limit 0 --path "$file" |
+    jq -r '.[] | "\(.id)\t\(.created_at[0:16] | sub("T"; " "))\t\(.description)"')
   if [[ -z $versions ]]; then
     echo "No saved versions of ${file/#$HOME/\~}" >&2
     exit 1
   fi
   choice=$(gum choose --header "Restore ${file/#$HOME/\~} to which saved version?" <<<"$versions")
   at="${choice%%$'\t'*}"
-  scope="${choice##*$'\t'}"
 fi
 
-if [[ $scope == "local" ]]; then
-  mise dot --local rollback "$file" --to "$at"
-else
-  mise dot rollback "$file" --to "$at"
-fi
+mise dot rollback "$file" --to "$at"
