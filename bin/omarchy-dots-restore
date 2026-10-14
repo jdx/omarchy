@@ -5,8 +5,9 @@
 # omarchy:examples=omarchy dots restore | omarchy dots restore ~/.config/hypr/bindings.lua | omarchy dots restore ~/.config/hypr/bindings.lua --at 42
 
 # Without a file, pick one of the files that have saved versions; without a
-# version, pick one of that file's. Restoring saves the current file first, so
-# `omarchy dots restore` can bring it back too.
+# version, pick one of that file's. Include local-only history, whose files
+# never enter the shared dots repository. Restoring saves the current file
+# first, so `omarchy dots restore` can bring it back too.
 
 set -euo pipefail
 
@@ -31,21 +32,34 @@ while (($#)); do
 done
 
 if [[ -z $file ]]; then
-  file=$(mise dot history --json --limit 0 |
-    jq -r '[.[].changes | (.modified // []) + (.added // []) + (.deleted // [])] | add // [] | unique[]' |
+  file=$({
+    mise dot history --json --limit 0
+    mise dot --local history --json --limit 0
+  } |
+    jq -rs '[.[] | .[].changes | (.modified // []) + (.added // []) + (.deleted // [])] | add // [] | unique[]' |
     gum filter --placeholder "Restore which file?")
 fi
 file="${file/#\~/$HOME}"
 
+scope="shared"
 if [[ -z $at ]]; then
-  versions=$(mise dot history --json --limit 0 --path "$file" |
-    jq -r '.[] | "\(.id)\t\(.created_at[0:16] | sub("T"; " "))\t\(.description)"')
+  versions=$({
+    mise dot history --json --limit 0 --path "$file" |
+      jq -r '.[] | "\(.id)\t\(.created_at[0:16] | sub("T"; " "))\t\(.description)\tshared"'
+    mise dot --local history --json --limit 0 --path "$file" |
+      jq -r '.[] | "\(.id)\t\(.created_at[0:16] | sub("T"; " "))\t\(.description)\tlocal"'
+  } | sort -r -k2,2)
   if [[ -z $versions ]]; then
     echo "No saved versions of ${file/#$HOME/\~}" >&2
     exit 1
   fi
   choice=$(gum choose --header "Restore ${file/#$HOME/\~} to which saved version?" <<<"$versions")
   at="${choice%%$'\t'*}"
+  scope="${choice##*$'\t'}"
 fi
 
-mise dot rollback "$file" --to "$at"
+if [[ $scope == "local" ]]; then
+  mise dot --local rollback "$file" --to "$at"
+else
+  mise dot rollback "$file" --to "$at"
+fi

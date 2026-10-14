@@ -24,9 +24,9 @@
 "~/.config/btop/btop.conf" = { mode = "track" }
 "~/.config/starship.toml" = { mode = "track" }
 
-# Machine-specific: each machine keeps its own history of these files, and
-# sync never applies one machine's version on another.
-"~/.config/hypr/monitors.lua" = { mode = "track", variants = [{ machine = true }] }
+# Machine-specific: local history and enrollment stay on this machine, and
+# sync never applies or publishes this file.
+"~/.config/hypr/monitors.lua" = { mode = "track-local" }
 
 # Save edits as they happen, not only around Omarchy updates. This is the name
 # mise documents, so a user's own declaration replaces it instead of adding a

@@ -4,7 +4,7 @@ Dots saves the history of the user's key configs and, optionally, shares them be
 
 ## Pieces
 
-- `default/mise/dots.toml` is the audited list of tracked files, as mise `[dotfiles]` track entries. Nothing outside it is saved. `~/.config/hypr/monitors.lua` is tracked with a `machine` variant: each machine keeps its own history of it, and sync never applies one machine's version on another. The file also declares mise's `history-watch` service, under mise's documented name `mise-history`, and sets `history.sync = "manual"`.
+- `default/mise/dots.toml` is the audited list of tracked files, as mise `[dotfiles]` track entries. Nothing outside it is saved. `~/.config/hypr/monitors.lua` uses `track-local`: its contents and enrollment metadata stay in that machine's local history, and sync never applies or publishes it. The file also declares mise's `history-watch` service, under mise's documented name `mise-history`, and sets `history.sync = "manual"`.
 - `omarchy dots enable` links that file to `~/.config/mise/conf.d/omarchy-dots.toml`, so package updates change the list for everyone. A user turns one entry off in `~/.config/mise/config.toml` with `enabled = false`. `omarchy-dots-enabled` tests the link.
 - `omarchy-dots-capture <label> -- <command>` runs a command between two labeled snapshots (`mise dot capture`). It wraps `omarchy-migrate` (label `omarchy update`, only when migrations are pending), `omarchy-refresh-config`, the batch `omarchy-refresh-*` commands that reset tracked files, and `omarchy-reinstall-configs`. The command runs exactly once: `OMARCHY_DOTS_CAPTURED` marks the nested commands of a batch, and when mise cannot start the command, the wrapper runs it directly.
 - Install runs `install/user/dots.sh` after mise is set up, which saves the first snapshot in the chroot; first run starts the watcher once the user manager is up. A migration turns dots on for existing installs.
@@ -15,7 +15,7 @@ Dots saves the history of the user's key configs and, optionally, shares them be
 
 - the user ran `omarchy dots disable` (`~/.local/state/omarchy/dots-disabled`)
 - `~/.git`, chezmoi, or yadm is present, or a key config is a symlink, as Stow makes
-- mise lacks machine variants, `bootstrap --adopt --take-remote-all`, or the check that makes `mise dot sync` refuse versions that look like secrets (mise 2026.10.5)
+- mise lacks local-only tracking, `bootstrap --adopt --take-remote-all`, or the check that makes `mise dot sync` refuse versions that look like secrets (mise 2026.10.5)
 
 `omarchy dots enable` reports the same reasons, and `--force` overrides the dotfile-manager check. Configs stay as they are, and `.bak` files from `omarchy refresh` keep working either way.
 

@@ -25,14 +25,19 @@ case "$1 $2" in
     exit
     ;;
   "dot track")
-    [[ -n ${TEST_OLD_MISE:-} ]] || echo "--machine"
+    ;;
+  "dot --help")
+    [[ -n ${TEST_OLD_MISE:-} ]] || echo "track-local"
     ;;
   "bootstrap --help")
     [[ -n ${TEST_OLD_MISE:-} ]] || echo "--take-remote-all"
     ;;
-  "dot history")
+  "dot history"|"dot --local")
     case "$*" in
+      *--local*--path*monitors.lua*) printf '%s\n' '[{"id":7,"created_at":"2026-10-10T10:35:50Z","description":"local monitor edit"}]' ;;
+      *--local*--path*) printf '%s\n' '[]' ;;
       *--path*) printf '%s\n' '[{"id":42,"created_at":"2026-10-09T10:35:50Z","description":"omarchy refresh hyprland"},{"id":41,"created_at":"2026-10-08T09:00:00Z","description":"edit"}]' ;;
+      *--local*) printf '%s\n' '[{"id":7,"changes":{"modified":["~/.config/hypr/monitors.lua"]}}]' ;;
       *) printf '%s\n' '[{"id":42,"changes":{"modified":["~/.config/hypr/bindings.lua"],"added":["~/.config/starship.toml"]}},{"id":41,"changes":{"deleted":["~/.config/hypr/bindings.lua"]}}]' ;;
     esac
     ;;
@@ -186,7 +191,7 @@ pass "the menu and commands agree on where dots are linked"
 new_home old
 TEST_OLD_MISE=1 run omarchy-dots-enable --auto >/dev/null
 [[ ! -e $home/.config/mise/conf.d/omarchy-dots.toml ]] || fail "enable stands down for an older mise"
-pass "enable stands down for a mise without machine variants"
+pass "enable stands down for a mise without local-only tracking"
 
 new_home nosecretscan
 TEST_NO_SECRET_SCAN=1 run omarchy-dots-enable --auto >/dev/null
@@ -199,9 +204,16 @@ new_home restore
 : >"$calls"
 run omarchy-dots-restore >/dev/null
 grep -qx 'dot history --json --limit 0' "$calls" || fail "restore lists files with saved versions"
+grep -qx 'dot --local history --json --limit 0' "$calls" || fail "restore also lists local-only files"
 grep -qx "dot history --json --limit 0 --path $home/.config/hypr/bindings.lua" "$calls" || fail "restore lists the picked file's versions"
+grep -qx "dot --local history --json --limit 0 --path $home/.config/hypr/bindings.lua" "$calls" || fail "restore also checks the picked file's local history"
 grep -qx "dot rollback $home/.config/hypr/bindings.lua --to 42" "$calls" || fail "restore rolls the picked file back to the picked version"
 pass "restore picks a file and a version, then rolls back"
+
+: >"$calls"
+run omarchy-dots-restore "$home/.config/hypr/monitors.lua" >/dev/null
+grep -qx "dot --local rollback $home/.config/hypr/monitors.lua --to 7" "$calls" || fail "restore rolls a local-only version back through local history"
+pass "restore picks and rolls back local-only history"
 
 : >"$calls"
 run omarchy-dots-restore "$home/.config/hypr/input.lua" --at 41 >/dev/null
@@ -217,8 +229,8 @@ pass "cancelling a picker restores nothing"
 
 # ---- the dots list, read by a real mise
 
-if [[ -z $real_mise ]] || ! "$real_mise" dot track --help 2>/dev/null | grep -q -- '--machine'; then
-  skip "the dots list needs a mise with machine variants"
+if [[ -z $real_mise ]] || ! "$real_mise" dot --help 2>/dev/null | grep -q -- 'track-local'; then
+  skip "the dots list needs a mise with local-only tracking"
 else
   home="$test_tmp/home-real"
   mkdir -p "$home/.config/mise/conf.d" "$home/.config/hypr"
@@ -230,10 +242,10 @@ else
   paths=$(cd "$home" && env -i PATH="$PATH" HOME="$home" XDG_CONFIG_HOME="$home/.config" \
     MISE_STATE_DIR="$home/.local/state/mise" MISE_DATA_DIR="$home/.local/share/mise" \
     MISE_CACHE_DIR="$home/.cache/mise" "$real_mise" dot paths --json)
-  jq -e '.entries[] | select(.path == "~/.config/hypr/monitors.lua") | .variant | startswith("machine-")' <<<"$paths" >/dev/null ||
-    fail "monitors.lua is kept per machine"
+  jq -e '.entries[] | select(.path == "~/.config/hypr/monitors.lua") | .mode == "track-local"' <<<"$paths" >/dev/null ||
+    fail "monitors.lua uses local-only history"
   jq -e '.entries[] | select(.path == "~/.bashrc")' <<<"$paths" >/dev/null ||
     fail "the dots list tracks ~/.bashrc"
   [[ $(jq '.invalid | length' <<<"$paths") == "0" ]] || fail "every dots entry is valid: $(jq -c .invalid <<<"$paths")"
-  pass "a real mise reads the dots list, with monitors.lua per machine"
+  pass "a real mise reads the dots list, with monitors.lua local-only"
 fi
