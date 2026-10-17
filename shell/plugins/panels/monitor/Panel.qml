@@ -289,7 +289,7 @@ Panel {
   // span ~10–20 points so casual tweaks change the label, while small
   // nudges within one band don't.
   function brightnessName(percent) {
-    return Model.brightnessName(percent)
+    return Model.brightnessName(percent, Commons.I18n.t)
   }
 
   function updateDisplays(displaysJson) {
@@ -559,7 +559,8 @@ Panel {
               spacing: Style.space(2)
 
               Text {
-                text: "Display"
+                text: Commons.I18n.t("monitor.display")
+                textFormat: Text.PlainText
                 color: root.bar.foreground
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.title
@@ -575,7 +576,7 @@ Panel {
                   if (root.brightnessAvailable) {
                     return root.brightnessName(brightnessSlider.dragging ? brightnessSlider.liveValue : root.brightnessPercent).toUpperCase()
                   }
-                  return "FIXED BRIGHTNESS"
+                  return Commons.I18n.t("monitor.fixedBrightness")
                 }
                 color: Qt.darker(root.bar.foreground, 1.4)
                 font.family: root.bar.fontFamily
@@ -605,7 +606,7 @@ Panel {
 
               PanelSectionHeader {
                 id: brightnessHeader
-                text: "BRIGHTNESS"
+                text: Commons.I18n.t("monitor.brightness")
                 foreground: root.bar.foreground
                 fontFamily: root.bar.fontFamily
                 anchors.left: parent.left
@@ -615,7 +616,7 @@ Panel {
               Text {
                 id: brightnessPercent
                 textFormat: Text.PlainText
-                text: Math.round(brightnessSlider.dragging ? brightnessSlider.liveValue : root.brightnessPercent) + "%"
+                text: Commons.I18n.formatNumber(Math.round(brightnessSlider.dragging ? brightnessSlider.liveValue : root.brightnessPercent)) + "%"
                 color: Qt.darker(root.bar.foreground, 1.4)
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.caption
@@ -678,7 +679,7 @@ Panel {
 
               PanelSectionHeader {
                 id: textSizeHeader
-                text: "TEXT SIZE"
+                text: Commons.I18n.t("monitor.textSize")
                 foreground: root.bar.foreground
                 fontFamily: root.bar.fontFamily
                 anchors.left: parent.left
@@ -688,7 +689,7 @@ Panel {
               Text {
                 id: textSizePx
                 textFormat: Text.PlainText
-                text: (textSizeSlider.dragging
+                text: Commons.I18n.formatNumber(textSizeSlider.dragging
                        ? root.textSizeStops[Math.round(textSizeSlider.liveValue)]
                        : root.displayedTextPx()) + "px"
                 color: Qt.darker(root.bar.foreground, 1.4)
@@ -750,7 +751,7 @@ Panel {
 
               PanelSectionHeader {
                 id: scaleHeader
-                text: "SCALE"
+                text: Commons.I18n.t("monitor.scale")
                 foreground: root.bar.foreground
                 fontFamily: root.bar.fontFamily
                 anchors.left: parent.left
@@ -812,7 +813,7 @@ Panel {
             visible: root.displays.length > 1
 
             PanelSectionHeader {
-              text: "DISPLAYS"
+              text: Commons.I18n.t("monitor.displays")
               foreground: root.bar.foreground
               fontFamily: root.bar.fontFamily
             }
@@ -845,7 +846,7 @@ Panel {
     required property string scaleValue
     required property int scaleIndex
 
-    text: root.effectiveScale(scaleValue) + "x"
+    text: Commons.I18n.formatNumber(root.effectiveScale(scaleValue)) + "x"
     fontSize: Style.font.caption
     foreground: root.bar.foreground
     fontFamily: root.bar.fontFamily
@@ -903,7 +904,9 @@ Panel {
 
       Text {
         textFormat: Text.PlainText
-        text: monitorRow.display.name + (monitorRow.display.focused ? " · focused" : "")
+        text: monitorRow.display.focused
+          ? Commons.I18n.t("monitor.displayFocused").arg(monitorRow.display.name)
+          : monitorRow.display.name
         color: root.bar.foreground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.body

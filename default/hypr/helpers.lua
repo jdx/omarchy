@@ -267,6 +267,11 @@ function o.notify(message)
   return "omarchy-notification-send -u low " .. shell_quote(message)
 end
 
+-- What makes apps float on their own account, so a floating workspace can
+-- leave their floating to them: the class and title patterns of rules that
+-- float them, the tags rules float, and the patterns of rules that tag them.
+o.floating_apps = { class = {}, title = {}, tags = {}, tagged = {} }
+
 function o.window(match, rules)
   rules.match = rules.match or {}
 
@@ -278,11 +283,34 @@ function o.window(match, rules)
     end
   end
 
+  if rules.float == true then
+    -- Only a rule floating a tag alone floats everything with that tag; one
+    -- that also names a class or title floats just those, recorded below.
+    if type(rules.match.tag) == "string" and rules.match.class == nil and rules.match.title == nil then
+      o.floating_apps.tags[rules.match.tag] = true
+    end
+    for _, key in ipairs({ "class", "title" }) do
+      if type(rules.match[key]) == "string" then
+        table.insert(o.floating_apps[key], rules.match[key])
+      end
+    end
+  end
+
+  if type(rules.tag) == "string" and rules.tag:sub(1, 1) == "+" then
+    local tag = rules.tag:sub(2)
+    o.floating_apps.tagged[tag] = o.floating_apps.tagged[tag] or {}
+    for _, key in ipairs({ "class", "title" }) do
+      if type(rules.match[key]) == "string" then
+        table.insert(o.floating_apps.tagged[tag], { key = key, pattern = rules.match[key] })
+      end
+    end
+  end
+
   hl.window_rule(rules)
 end
 
 -- Opt a window in to Omarchy's standard active/inactive transparency. The tag
--- lets Appearance > Window Transparency turn these windows opaque or glassy.
+-- lets Appearance > Window Opacity turn these windows opaque or glassy.
 function o.transparent_window(match, opacity)
   o.window(match, { opacity = opacity or "0.985 0.96", tag = "+transparent-window" })
 end

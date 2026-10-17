@@ -187,7 +187,7 @@ Rectangle {
 
       Caption {
         Layout.alignment: Qt.AlignBaseline
-        text: Model.tempLabel(row.panel.facts[Model.factsKey(row.rowData)], row.panel.units)
+        text: Model.tempLabel(row.panel.facts[Model.factsKey(row.rowData)], row.panel.units, row.panel.words)
         visible: text !== ""
         color: tempHover.hovered ? row.foreground : row.dim
 
@@ -278,6 +278,7 @@ Rectangle {
     nowMs: row.panel.effectiveMs
     hovered: rowHover.hovered
     hour24: row.panel.hour24
+    words: row.panel.words
     moonPhase: row.panel.moonPhase
     foreground: row.foreground
     fainter: row.fainter
@@ -301,7 +302,7 @@ Rectangle {
     color: Model.mix(Commons.Color.popups.background, row.foreground, _hot ? 0.24 : 0.14)
     borderSpec: Border.flat(Model.mix(Commons.Color.popups.background, row.foreground, _hot ? 0.65 : 0.35), Style.space(1))
     iconText: "\u00d7"
-    tooltipText: "Remove"
+    tooltipText: Commons.I18n.t("elsewhen.remove")
     foreground: row.dim
     hoverColor: row.foreground
     fontFamily: row.fontFamily

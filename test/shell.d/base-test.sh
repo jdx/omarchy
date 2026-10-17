@@ -10,6 +10,12 @@ SHELL_TEST_DIR="$ROOT/test/shell.d"
 
 export ROOT
 
+# Commands print user-facing text in the language picked under Setup >
+# Language, so pin tests to English (a missing file means English) rather than
+# whatever the machine running them is set to. Tests of other languages point
+# this at a file of their own.
+export OMARCHY_LANGUAGE_FILE=$ROOT/test/.no-language
+
 pass() {
   printf 'ok - %s\n' "$1"
 }
@@ -139,6 +145,7 @@ fake_platform() {
 
   case $platform in
     aarch64-apple) compatible=(apple,j416c apple,t6021 apple,arm-platform) ;;
+    aarch64-qualcomm) compatible=(lenovo,yoga-slim7x qcom,x1e80100) ;;
     aarch64) compatible=(raspberrypi,5-model-b brcm,bcm2712) ;;
     x86) machine=x86_64 ;;
     *) fail "fake_platform knows the platform $platform" ;;

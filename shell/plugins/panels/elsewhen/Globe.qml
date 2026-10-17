@@ -22,6 +22,7 @@ Item {
   readonly property color nightMarker: Util.alpha(Commons.Color.background, 0.92)
   property string fontFamily: Style.font.family
   property bool hour24: false
+  property var words: null
   // The panel's offset setting, and the offset "home" is measured from.
   property string offsetMode: "home"
   property int homeOffsetMinutes: 0
@@ -202,8 +203,8 @@ Item {
   function offsetLabelFor(zone) {
     var off = offsets[zone]
     if (off === undefined) return ""
-    return offsetMode === "utc" ? Model.utcOffsetLabel(off)
-                                : Model.relativeOffsetLabel(off, homeOffsetMinutes)
+    return offsetMode === "utc" ? Model.utcOffsetLabel(off, words)
+                                : Model.relativeOffsetLabel(off, homeOffsetMinutes, words)
   }
 
   function isTracked(i) {
@@ -561,7 +562,7 @@ Item {
     city: root.selected >= 0 ? root.allCities[root.selected] : null
     // The globe's solar daylight, so the mark agrees with the city's dot.
     daylight: footer.has && root.cityDaylight(root.selected)
-    clock: footer.has ? Model.formatClock(root.nowMs, root.offsets[footer.city[1]], root.hour24) : ""
+    clock: footer.has ? Model.formatClock(root.nowMs, root.offsets[footer.city[1]], root.hour24, root.words) : ""
     offsetLabel: footer.has ? root.offsetLabelFor(footer.city[1]) : ""
     badge: root.isHome(root.selected) ? "home" : (root.isTracked(root.selected) ? "tracked" : "")
     moonPhase: root.moonPhase
@@ -585,9 +586,9 @@ Item {
     limit: 5
     inlineResults: false
     loading: root.jumpOptions.length === 0
-    buttonText: "Jump to a city"
-    loadingText: "Loading cities\u2026"
-    offsetLabel: function(zoneId) { return Model.utcOffsetLabel(root.offsets[zoneId]) }
+    buttonText: Commons.I18n.t("elsewhen.jumpToCity")
+    loadingText: Commons.I18n.t("elsewhen.loadingCities")
+    offsetLabel: function(zoneId) { return Model.utcOffsetLabel(root.offsets[zoneId], root.words) }
     foreground: root.foreground
     dim: root.dim
     fainter: root.fainter

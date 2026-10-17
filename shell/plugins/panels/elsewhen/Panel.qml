@@ -36,16 +36,33 @@ Panel {
   readonly property bool needsSeed: String(setting("zones", "")).trim() === ""
   readonly property var probeIds: needsSeed ? zoneIds.concat(Model.seedCandidateZones()) : zoneIds
 
-  readonly property bool autoHour24: Model.usesTwentyFourHour(Qt.locale().timeFormat(Locale.ShortFormat))
+  readonly property var formatLocale: Qt.locale(Commons.I18n.formatLocale)
+  readonly property bool autoHour24: Model.usesTwentyFourHour(formatLocale.timeFormat(Locale.ShortFormat))
   readonly property bool hour24: Model.resolveHour24(setting("hour24", ""), autoHour24)
   // "home" shows the distance from here ("+2h"), "utc" the zone itself ("UTC-5").
   readonly property string offsetMode: setting("offsetMode", "home") === "utc" ? "utc" : "home"
   // Only the US measurement system means Fahrenheit.
-  readonly property string autoUnits: Qt.locale().measurementSystem === Locale.ImperialUSSystem ? "F" : "C"
+  readonly property string autoUnits: formatLocale.measurementSystem === Locale.ImperialUSSystem ? "F" : "C"
   readonly property string units: Model.resolveUnits(setting("units", ""), autoUnits)
   readonly property bool globeEnabled: setting("globeEnabled", true) !== false
   // Draw the globe with less in it while it moves.
   readonly property bool smoothMotion: setting("smoothMotion", true) !== false
+
+  // The words the model's clocks and dates read in, from the shell's language.
+  readonly property var words: {
+    var locale = formatLocale
+    return {
+      t: Commons.I18n.t,
+      tn: Commons.I18n.tn,
+      fmt: Commons.I18n.formatNumber,
+      am: locale.amText,
+      pm: locale.pmText,
+      date: function(parts) {
+        return new Date(parts.year, parts.month, parts.day, 12)
+          .toLocaleString(locale, Commons.I18n.t("elsewhen.dateFormat"))
+      }
+    }
+  }
 
   function toggleHour24() { persistSettings({ hour24: !hour24 }) }
   function toggleOffsetMode() { persistSettings({ offsetMode: offsetMode === "utc" ? "home" : "utc" }) }
@@ -53,7 +70,7 @@ Panel {
 
   function offsetTextFor(rowData) {
     if (!rowData || !rowData.ready) return ""
-    return offsetMode === "utc" ? Model.utcOffsetLabel(rowData.offsetMinutes) : rowData.relative
+    return offsetMode === "utc" ? Model.utcOffsetLabel(rowData.offsetMinutes, words) : rowData.relative
   }
 
   // ---- state
@@ -199,7 +216,7 @@ Panel {
   // Set absolutely from the pointer, held briefly after release, then back to now.
   property real scrubMinutes: 0
   readonly property double effectiveMs: nowMs + scrubMinutes * 60000
-  readonly property string scrubLabel: Model.formatScrubDelta(scrubMinutes)
+  readonly property string scrubLabel: Model.formatScrubDelta(scrubMinutes, words)
 
   // Measured against the unscrubbed present, so a drag cannot drift.
   function scrubTo(rowData, fraction) {
@@ -245,7 +262,7 @@ Panel {
   }
 
   // ---- places
-  readonly property var clockRows: Model.rows(zones, probe, effectiveMs, localOffsetMinutes, hour24)
+  readonly property var clockRows: Model.rows(zones, probe, effectiveMs, localOffsetMinutes, hour24, words)
 
   // The system zone names a representative city; `homeCity` overrides it.
   readonly property string homeCity: {
@@ -344,13 +361,14 @@ Panel {
 
   readonly property string localTime: {
     var here = Model.localParts(effectiveMs)
-    var text = Model.formatTime(here, hour24)
-    return hour24 ? text : text + " " + Model.meridiem(here)
+    var text = Model.formatTime(here, hour24, words)
+    return hour24 ? text : text + " " + Model.meridiem(here, words)
   }
 
   // No full stop: a period hanging off the arc reads as a speck.
-  readonly property string hereLine: "It's " + localTime + " here"
-    + (homeCity !== "" ? " in " + homeCity : "")
+  readonly property string hereLine: (homeCity !== ""
+      ? Commons.I18n.t("elsewhen.hereIn").arg(localTime).arg(homeCity)
+      : Commons.I18n.t("elsewhen.here").arg(localTime))
     + (scrubLabel !== "" ? "  " + scrubLabel : "")
 
   // A capital's line box has empty space above it; the row's top pad drops by it.
@@ -377,14 +395,16 @@ Panel {
     font.family: root.fontFamily
     font.pixelSize: Style.font.heading
     font.weight: Font.DemiBold
-    text: "00:00"
+    // In the language's digits, which are not all as wide as ASCII ones.
+    text: Model.formatTime({ hour: 0, minute: 0 }, true, root.words)
   }
 
   TextMetrics {
     id: meridiemMetrics
     font.family: root.fontFamily
     font.pixelSize: Style.font.caption
-    text: "PM"
+    text: root.formatLocale.pmText.length > root.formatLocale.amText.length
+      ? root.formatLocale.pmText : root.formatLocale.amText
   }
 
   readonly property real timeColumnWidth: Math.ceil(widestTimeMetrics.advanceWidth
@@ -499,7 +519,7 @@ Panel {
 
   function utcLabelFor(zoneId) {
     var known = searchProbe[zoneId]
-    return known === undefined ? "" : Model.utcOffsetLabel(known.offsetMinutes)
+    return known === undefined ? "" : Model.utcOffsetLabel(known.offsetMinutes, words)
   }
 
   // Tracked cities, the city you are in (for the globe's home) and session cities.
@@ -732,7 +752,7 @@ Panel {
     bar: root.bar
     slotSize: Style.bar.statusSlot
     text: "󰇧"
-    tooltipText: "World clock"
+    tooltipText: Commons.I18n.t("elsewhen.worldClock")
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton || buttonCode === Qt.MiddleButton) root.refresh()
       else root.toggle()
@@ -977,6 +997,7 @@ Panel {
                 item.moonPhase = Qt.binding(function() { return root.moonPhase })
                 item.fontFamily = Qt.binding(function() { return root.fontFamily })
                 item.hour24 = Qt.binding(function() { return root.hour24 })
+                item.words = Qt.binding(function() { return root.words })
                 item.trackedNames = Qt.binding(function() { return root.trackedNames })
                 item.trackedCities = Qt.binding(function() { return root.trackedCities })
                 item.sessionCities = Qt.binding(function() { return root.sessionPlaces })

@@ -37,6 +37,24 @@ BarWidget {
     root.bar.run("hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ workspace = \"" + id + "\" })"))
   }
 
+  // A wheel notch moves one entry along the row, and a touchpad adds up its
+  // smaller deltas until they make a notch's worth.
+  property real wheelAccumulator: 0
+
+  function scrollWorkspaces(delta) {
+    var wheel = Util.wheelSteps(root.wheelAccumulator, delta)
+    root.wheelAccumulator = wheel.remainder
+    if (wheel.steps === 0) return
+
+    // Holds at either end rather than wrapping, so a touchpad swipe that runs
+    // long stops on the last workspace.
+    var ids = root.workspaceIds()
+    var index = ids.indexOf(root.focusedWorkspaceId())
+    if (index === -1) return
+    var target = ids[Util.clamp(index - wheel.steps, 0, ids.length - 1)]
+    if (target !== ids[index]) root.focusWorkspace(target)
+  }
+
   // The focused workspace shows its layout: a square tiles, a circle scrolls,
   // and a triangle floats. Clicking it cycles to the next one, as Super + L does.
   property string focusedMode: "dwindle"
@@ -160,6 +178,7 @@ BarWidget {
           if (focused) root.cycleLayout()
           else root.focusWorkspace(modelData)
         }
+        onWheelMoved: function(delta) { root.scrollWorkspaces(delta) }
       }
     }
   }

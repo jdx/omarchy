@@ -118,9 +118,11 @@ can point a submenu at an existing provider but cannot declare a new one:
   the launcher. App rows are searchable by their desktop Keywords but never
   routable, so an installed app cannot capture a menu route (htop ships
   `Keywords=system;...`, and SUPER+ESCAPE must still open the system menu).
-- `fonts` and `power-profiles` are bash one-liners in the `providers` map in
+- `fonts`, `power-profiles`, and `languages` are bash one-liners in the `providers` map in
   `Menu.qml`. The contract is one tab-delimited line per row:
-  `label\tvalue\tcurrent`. The row whose value equals `current` gets the ✓
+  `label\tvalue\tcurrent`, with an optional fourth field that becomes a search-only
+  term for the row (the languages provider passes each language's English name, so
+  searching "danish" finds the row labeled "Dansk", without making "danish" a routable command). The row whose value equals `current` gets the ✓
   icon, and selection runs the spec's `actionFor(value)`. Row ids are
   `<menuId>.<slugify(value)>`, with a `-` appended on collision so two values
   that slugify alike cannot silently drop a row.

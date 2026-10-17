@@ -34,6 +34,8 @@ chmod +x "$stub_dir/hyprctl"
 cat >"$stub_dir/omarchy-notification-send" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >>"$NOTIFICATION_LOG"
+[[ " $* " == *" -p "* ]] && echo 42
+exit 0
 EOF
 chmod +x "$stub_dir/omarchy-notification-send"
 
@@ -81,6 +83,8 @@ grep -q "set to scrolling" "$notification_log" ||
   fail "the new mode is announced" "$(cat "$notification_log")"
 grep -qx -- "-q omarchy.workspaces refresh" "$notification_log" ||
   fail "the bar is asked to show the new layout" "$(cat "$notification_log")"
+grep -qx -- "-q omarchy.dock refresh" "$notification_log" ||
+  fail "the dock is asked to follow the new layout" "$(cat "$notification_log")"
 if grep -q "could not be saved" "$notification_log"; then
   fail "a saved mode is announced as saved" "$(cat "$notification_log")"
 fi
@@ -529,3 +533,20 @@ if ! HOME="$home_dir" XDG_STATE_HOME="$home_dir/.local/state" OMARCHY_PATH="$ROO
   fail "a saved floating mode floats the workspace without inventing a layout"
 fi
 pass "a saved floating mode floats the workspace without inventing a layout"
+
+# A layout change replaces the last layout notification rather than stacking
+# another under it.
+: >"$notification_log"
+toggle
+toggle
+[[ $(grep -c -- "-r 42 " "$notification_log") -ge 1 ]] ||
+  fail "a layout change replaces the last layout notification" "$(cat "$notification_log")"
+pass "layout changes replace a single notification"
+
+# The notification calls dwindle tiling, as the menu and the bar do.
+printf 'o.workspace_mode({ workspace = "3", mode = "floating" })\n' >"$layout_file"
+: >"$notification_log"
+toggle
+grep -q "set to tiling" "$notification_log" && ! grep -q "dwindle" "$notification_log" ||
+  fail "the notification calls dwindle tiling" "$(cat "$notification_log")"
+pass "the notification calls dwindle tiling"

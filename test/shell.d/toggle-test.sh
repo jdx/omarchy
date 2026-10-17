@@ -116,7 +116,7 @@ pass "a VM install starts without animations and with opaque windows"
 
 # Animations off no longer makes windows opaque. The migration takes that rule
 # out of a saved flag, keeping anything else in it, and keeps those windows
-# opaque through Window Transparency instead.
+# opaque through Window Opacity instead.
 migration_home=$(mktemp -d)
 migration_flags="$migration_home/.local/state/omarchy/toggles/hypr"
 mkdir -p "$migration_flags"
@@ -132,4 +132,4 @@ printf 'x\n' >"$migration_flags/window-glassy.lua"
 HOME="$migration_home" XDG_STATE_HOME="" OMARCHY_PATH="$ROOT" bash -euo pipefail "$ROOT/migrations/1791705142.sh" >/dev/null
 [[ ! -f $migration_flags/window-opaque.lua ]] || fail "the migration leaves a chosen transparency alone"
 rm -rf "$migration_home"
-pass "the migration moves opaque windows from the animations flag to Window Transparency"
+pass "the migration moves opaque windows from the animations flag to Window Opacity"
