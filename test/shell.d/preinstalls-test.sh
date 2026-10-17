@@ -109,6 +109,14 @@ printf 'ignored_config_paths = ["~/old", "%s"]\n' "$mise_config" >"$miserc"
 ((status == 1)) || fail "opting back in reports a list it cannot edit" "exit status was $status"
 rm "$miserc"
 pass "an existing ignored_config_paths is left to the user"
+
+printf '# %s\n' "$ignore_line" >"$miserc"
+"$ROOT/bin/omarchy-mise-default-tools" declares codex || fail "a commented-out opt-out keeps Omarchy's tools declared"
+"$ROOT/bin/omarchy-mise-default-tools" disable >/dev/null
+grep -qxF "$ignore_line" "$miserc" || fail "opting out is not skipped by a commented-out opt-out"
+"$ROOT/bin/omarchy-mise-default-tools" enable >/dev/null || fail "opting back in succeeds past a commented-out opt-out"
+rm "$miserc"
+pass "a commented-out opt-out does not count"
 "$ROOT/bin/omarchy-remove-preinstalls" >/dev/null
 
 [[ ${restored[*]} == "${dropped[*]}" ]] ||

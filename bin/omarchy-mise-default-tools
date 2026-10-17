@@ -30,9 +30,9 @@ list_tools() {
   ' "$tools_config"
 }
 
-# Counts the path in a list the user wrote themselves, too.
+# Counts the path in a list the user wrote themselves, too, but not in a comment.
 opted_out() {
-  [[ -f $miserc ]] && grep -qF "$tools_config" "$miserc"
+  [[ -f $miserc ]] && grep -v '^[[:space:]]*#' "$miserc" | grep -qF "$tools_config"
 }
 
 case "${1:-}" in
