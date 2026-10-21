@@ -69,6 +69,7 @@ tesseract() {
   1) printf '%s\n' "$native_text" ;;
   2) printf '%s\n' "$doubled_text" ;;
   esac
+  [[ ${ocr_fails:-false} == "false" ]]
 }
 
 # A helper-test failure should not attempt a real compositor screenshot.
@@ -95,6 +96,25 @@ if screen_contains "Acceptance notification"; then
   fail "OCR rejects text absent at both resolutions"
 fi
 pass "OCR rejects text absent at both resolutions"
+
+native_text="Acceptance notification"
+doubled_text="Acceptance notification"
+# A failed OCR run can still print text; callers run under pipefail, so it must not match.
+ocr_fails=true
+if (set -o pipefail; screen_contains "Acceptance notification"); then
+  fail "OCR errors do not pass a text assertion"
+fi
+pass "OCR errors do not pass a text assertion"
+ocr_fails=false
+
+ocr_snapshot="/tmp/omarchy-acceptance-ocr-$$.png"
+screen_contains "Acceptance notification" || fail "OCR finds visible text before checking cleanup"
+[[ ! -e $ocr_snapshot ]] || fail "OCR capture is removed after a match"
+if screen_contains "Different notification"; then
+  fail "OCR rejects text absent before checking cleanup"
+fi
+[[ ! -e $ocr_snapshot ]] || fail "OCR capture is removed after a miss"
+pass "OCR capture is removed after a match and after a miss"
 
 capture_fails=true
 native_text="Acceptance notification"
